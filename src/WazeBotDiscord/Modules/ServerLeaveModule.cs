@@ -2,14 +2,12 @@
 using System.Threading.Tasks;
 using WazeBotDiscord.Utilities;
 using WazeBotDiscord.ServerLeave;
-using System;
 
 namespace WazeBotDiscord.Modules
 {
     [Group("serverleave")]
     public class ServerLeaveModule : ModuleBase
     {
-
         readonly ServerLeaveService _serverLeaveSvc;
 
         public ServerLeaveModule(ServerLeaveService lookupSvc)
@@ -30,18 +28,16 @@ namespace WazeBotDiscord.Modules
 
         [Command("add"), Priority(10)]
         [RequireAdmin]
-        public async Task Add([Remainder]string channelID = null)
+        public async Task Add([Remainder] string channelId = null)
         {
-            if (channelID == null)
+            if (channelId == null)
             {
-                await ReplyAsync($"{Context.Message.Author.Mention}: You must specify a channel ID.");
+                await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a channel ID.");
                 return;
             }
+            ulong channelID = channelId.GetChannelIDFromString();
 
-            if (channelID.StartsWith("<#") && channelID.EndsWith(">"))
-                channelID = channelID.TrimStart('<').TrimStart('#').TrimEnd('>');
-
-            var result = await _serverLeaveSvc.AddChannelIDAsync(Context.Guild.Id, Convert.ToUInt64(channelID));
+            var result = await _serverLeaveSvc.AddChannelIDAsync(Context.Guild.Id, channelID);
 
             var reply = $"{Context.Message.Author.Mention}: channel added.";
             if (result == false)
@@ -52,7 +48,7 @@ namespace WazeBotDiscord.Modules
 
         [Command("remove"), Priority(9)]
         [RequireAdmin]
-        public async Task Remove([Remainder]string channelID = null)
+        public async Task Remove([Remainder] string channelId = null)
         {
             var removed = await _serverLeaveSvc.RemoveServerChannelAsync(Context.Guild.Id);
 
@@ -62,6 +58,5 @@ namespace WazeBotDiscord.Modules
                 await ReplyAsync("No channel was set for this server.");
 
         }
-
     }
 }

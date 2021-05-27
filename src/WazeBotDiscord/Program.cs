@@ -202,8 +202,7 @@ namespace WazeBotDiscord
             }
             else if (!result.IsSuccess && result.Error == CommandError.BadArgCount)
             {
-                await context.Channel.SendMessageAsync($"{context.Message.Author.Mention}: You didn't specify the right " +
-                    "parameters. If you're using a role command, you probably forgot to specify the user.");
+                await context.Channel.SendMessageAsync($"{context.Message.Author.Mention}: You didn't provide the right parameters. If you're using a role command, you probably forgot to provide the user.");
                 await context.Channel.SendMessageAsync(result.ErrorReason);
             }
         }
