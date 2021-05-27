@@ -14,6 +14,8 @@ namespace WazeBotDiscord.Keywords
             RegexKeyword = regexKeyword;
             IgnoredChannels = new List<ulong>();
             IgnoredGuilds = new List<ulong>();
+            SpecifiedChannels = new List<ulong>();
+            SpecifiedGuilds = new List<ulong>();
         }
 
         public int Id { get; set; }
@@ -27,6 +29,10 @@ namespace WazeBotDiscord.Keywords
         public List<ulong> IgnoredChannels { get; set; }
 
         public List<ulong> IgnoredGuilds { get; set; }
+
+        public List<ulong> SpecifiedChannels { get; set; }
+
+        public List<ulong> SpecifiedGuilds { get; set; }
     }
 
     public class UserMutedGuilds
@@ -54,6 +60,10 @@ namespace WazeBotDiscord.Keywords
         public ICollection<DbKeywordIgnoredChannel> IgnoredChannels { get; set; }
 
         public ICollection<DbKeywordIgnoredGuild> IgnoredGuilds { get; set; }
+
+        public ICollection<DbKeywordSpecifiedChannel> SpecifiedChannels { get; set; }
+
+        public ICollection<DbKeywordSpecifiedGuild> SpecifiedGuilds { get; set; }
     }
 
     public class DbKeywordIgnoredChannel
@@ -68,6 +78,28 @@ namespace WazeBotDiscord.Keywords
     }
 
     public class DbKeywordIgnoredGuild
+    {
+        public int Id { get; set; }
+
+        public int KeywordId { get; set; }
+
+        public ulong GuildId { get; set; }
+
+        public DbKeyword Keyword { get; set; }
+    }
+
+    public class DbKeywordSpecifiedChannel
+    {
+        public int Id { get; set; }
+
+        public int KeywordId { get; set; }
+
+        public ulong ChannelId { get; set; }
+
+        public DbKeyword Keyword { get; set; }
+    }
+
+    public class DbKeywordSpecifiedGuild
     {
         public int Id { get; set; }
 

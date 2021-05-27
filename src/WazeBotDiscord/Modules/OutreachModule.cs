@@ -39,7 +39,7 @@ namespace WazeBotDiscord.Modules
         {
             if (sheetID == null)
             {
-                await ReplyAsync($"{Context.Message.Author.Mention}: You must specify a sheet ID.");
+                await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a sheet ID.");
                 return;
             }
             var sheetInfo = sheetID.Split(" ");

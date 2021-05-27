@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
 namespace WazeBotDiscord
@@ -16,6 +17,16 @@ namespace WazeBotDiscord
                 return new Regex("^.*$", RegexOptions.Compiled | RegexOptions.Multiline);
 
             return new Regex($"(^|\\s)({string.Join("|", toCheck)})($|\\s)", RegexOptions.Compiled | RegexOptions.Multiline);
+        }
+
+        public static ulong GetChannelIDFromString(this string channelIDString)
+        {
+            ulong channelID;
+            if (channelIDString.StartsWith("<#") && channelIDString.EndsWith(">"))
+                channelID = Convert.ToUInt64(channelIDString.TrimStart('<').TrimStart('#').TrimEnd('>'));
+            else
+                channelID = Convert.ToUInt64(channelIDString);
+            return channelID;
         }
     }
 }

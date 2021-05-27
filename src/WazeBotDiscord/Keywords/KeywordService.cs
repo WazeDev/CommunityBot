@@ -31,6 +31,8 @@ namespace WazeBotDiscord.Keywords
                 keywords = await db.Keywords
                     .Include(k => k.IgnoredChannels)
                     .Include(k => k.IgnoredGuilds)
+                    .Include(k => k.SpecifiedChannels)
+                    .Include(k => k.SpecifiedGuilds)
                     .ToListAsync();
 
                 //mutedChannels = await db.MutedChannels.ToListAsync();
@@ -52,7 +54,9 @@ namespace WazeBotDiscord.Keywords
                     Keyword = k.Keyword,
                     RegexKeyword = regexKeyword,
                     IgnoredChannels = k.IgnoredChannels.Select(c => c.ChannelId).ToList(),
-                    IgnoredGuilds = k.IgnoredGuilds.Select(g => g.GuildId).ToList()
+                    IgnoredGuilds = k.IgnoredGuilds.Select(g => g.GuildId).ToList(),
+                    SpecifiedChannels = k.SpecifiedChannels.Select(c => c.ChannelId).ToList(),
+                    SpecifiedGuilds = k.SpecifiedGuilds.Select(g => g.GuildId).ToList()
                 });
             }
 
@@ -88,10 +92,27 @@ namespace WazeBotDiscord.Keywords
                 message = _botMsg.Replace(message, "");
                 msg = _botMsg.Replace(msg, "");
             }
-                
+
 
             foreach (var k in _keywords)
             {
+                void processMatch()
+                {
+                    if (k.RegexKeyword != null)
+                    {
+                        if (k.RegexKeyword?.IsMatch(message) == false && k.RegexKeyword?.IsMatch(msg) == false)
+                            return;
+                    }
+                    else if (!message.Contains(k.Keyword))
+                        return;
+
+                    var existingMatch = matches.Find(m => m.UserId == k.UserId);
+                    if (existingMatch != null)
+                        existingMatch.MatchedKeywords.Add(k.Keyword);
+                    else
+                        matches.Add(new KeywordMatch(k.UserId, k.Keyword));
+                };
+
                 if (k.IgnoredGuilds.Contains(guildId) || k.IgnoredChannels.Contains(channelId))
                     continue;
 
@@ -102,22 +123,22 @@ namespace WazeBotDiscord.Keywords
                     || (mutedChannels?.ChannelIds.Contains(channelId) == true))
                     continue;
 
-                if (k.RegexKeyword != null)
+                if (k.SpecifiedChannels.Any() || k.SpecifiedGuilds.Any())
                 {
-                    if (k.RegexKeyword?.IsMatch(message) == false && k.RegexKeyword?.IsMatch(msg) == false)
-                        continue;
+                    if (k.SpecifiedChannels.Contains(channelId) || k.SpecifiedGuilds.Contains(guildId))
+                    {
+                        processMatch();
+                    }
                 }
-                else if (!message.Contains(k.Keyword))
-                    continue;
-
-                var existingMatch = matches.Find(m => m.UserId == k.UserId);
-                if (existingMatch != null)
-                    existingMatch.MatchedKeywords.Add(k.Keyword);
                 else
-                    matches.Add(new KeywordMatch(k.UserId, k.Keyword));
+                {
+                    processMatch();
+                }
             }
 
             return matches;
+
+
         }
 
         /// <summary>
@@ -204,7 +225,7 @@ namespace WazeBotDiscord.Keywords
             using (var db = new WbContext())
             {
                 //var dbRecord = await db.Keywords.FirstOrDefaultAsync(k => k.UserId == userId && k.Keyword == keyword);
-                var dbRecord = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(db.Keywords, k => k.UserId == userId && k.Keyword == keyword);
+                var dbRecord = await EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(db.Keywords, k => k.UserId == userId && k.Keyword == keyword);
                 if (dbRecord == null)
                     return true;
 
@@ -384,6 +405,168 @@ namespace WazeBotDiscord.Keywords
         }
 
         /// <summary>
+        /// Specifies channels for a given user keyword.
+        /// </summary>
+        /// <param name="userId">ID of the user</param>
+        /// <param name="keyword">Keyword to specify</param>
+        /// <param name="channelIds">Channel IDs</param>
+        public async Task<SpecifyResult> SpecifyChannelsAsync(ulong userId, string keyword, params ulong[] channelIds)
+        {
+            if (!CheckRegexKeyword(keyword))
+                keyword = keyword.ToLowerInvariant();
+
+            var record = GetRecord(userId, keyword);
+            if (record == null)
+                return SpecifyResult.NotSubscribed;
+            if (channelIds.All(c => record.SpecifiedChannels.Contains(c)))
+                return SpecifyResult.AlreadySpecified;
+
+            var channels = channelIds.Distinct().Except(record.SpecifiedChannels);
+            var dbChannels = channels.Select(c => new DbKeywordSpecifiedChannel
+            {
+                KeywordId = record.Id,
+                ChannelId = c
+            });
+
+            using (var db = new WbContext())
+            {
+                var dbRecord = await db.Keywords
+                    .Include(k => k.SpecifiedChannels)
+                    .FirstOrDefaultAsync(k => k.Id == record.Id);
+                if (dbRecord == null)
+                    return SpecifyResult.NotSubscribed;
+
+                foreach (var c in dbChannels)
+                    dbRecord.SpecifiedChannels.Add(c);
+
+                await db.SaveChangesAsync();
+            }
+
+            record.SpecifiedChannels.AddRange(channels);
+
+            return SpecifyResult.Success;
+        }
+
+        /// <summary>
+        /// Specifies guilds for a given user keyword.
+        /// </summary>
+        /// <param name="userId">ID of the user</param>
+        /// <param name="keyword">Keyword to specify</param>
+        /// <param name="guildIds">Guild IDs</param>
+        public async Task<SpecifyResult> SpecifyGuildsAsync(ulong userId, string keyword, params ulong[] guildIds)
+        {
+            if (!CheckRegexKeyword(keyword))
+                keyword = keyword.ToLowerInvariant();
+
+            var record = GetRecord(userId, keyword);
+            if (record == null)
+                return SpecifyResult.NotSubscribed;
+            if (guildIds.All(g => record.SpecifiedGuilds.Contains(g)))
+                return SpecifyResult.AlreadySpecified;
+
+            var guilds = guildIds.Distinct().Except(record.SpecifiedGuilds);
+            var dbGuilds = guilds.Select(c => new DbKeywordSpecifiedGuild
+            {
+                KeywordId = record.Id,
+                GuildId = c
+            });
+
+            using (var db = new WbContext())
+            {
+                var dbRecord = await db.Keywords
+                    .Include(k => k.SpecifiedGuilds)
+                    .FirstOrDefaultAsync(k => k.Id == record.Id);
+                if (dbRecord == null)
+                    return SpecifyResult.NotSubscribed;
+
+                foreach (var c in dbGuilds)
+                    dbRecord.SpecifiedGuilds.Add(c);
+
+                await db.SaveChangesAsync();
+            }
+
+            record.SpecifiedGuilds.AddRange(guilds);
+
+            return SpecifyResult.Success;
+        }
+
+        /// <summary>
+        /// Unspecifies channels for a given user keyword.
+        /// </summary>
+        /// <param name="userId">ID of the user</param>
+        /// <param name="keyword">Keyword to unspecify</param>
+        /// <param name="channelIds">Channel IDs</param>
+        public async Task<UnspecifyResult> UnspecifyChannelsAsync(ulong userId, string keyword, params ulong[] channelIds)
+        {
+            if (CheckRegexKeyword(keyword))
+                keyword = keyword.ToLowerInvariant();
+
+            var record = GetRecord(userId, keyword);
+            if (record == null)
+                return UnspecifyResult.NotSubscribed;
+            if (channelIds.All(c => !record.SpecifiedChannels.Contains(c)))
+                return UnspecifyResult.NotSpecified;
+
+            var channels = channelIds.Distinct().Intersect(record.SpecifiedChannels);
+
+            using (var db = new WbContext())
+            {
+                var dbRecord = await db.Keywords
+                    .Include(k => k.SpecifiedChannels)
+                    .FirstOrDefaultAsync(k => k.Id == record.Id);
+                if (dbRecord == null)
+                    return UnspecifyResult.NotSubscribed;
+
+                foreach (var c in dbRecord.SpecifiedChannels.Where(c => channels.Contains(c.ChannelId)).ToList())
+                    dbRecord.SpecifiedChannels.Remove(c);
+
+                await db.SaveChangesAsync();
+            }
+
+            record.SpecifiedChannels.RemoveAll(c => channels.Contains(c));
+
+            return UnspecifyResult.Success;
+        }
+
+        /// <summary>
+        /// Unspecifies guilds for a given user keyword.
+        /// </summary>
+        /// <param name="userId">ID of the user</param>
+        /// <param name="keyword">Keyword to unspecify</param>
+        /// <param name="guildIds">Guild IDs</param>
+        public async Task<UnspecifyResult> UnspecifyGuildsAsync(ulong userId, string keyword, params ulong[] guildIds)
+        {
+            if (CheckRegexKeyword(keyword))
+                keyword = keyword.ToLowerInvariant();
+
+            var record = GetRecord(userId, keyword);
+            if (record == null)
+                return UnspecifyResult.NotSubscribed;
+            if (guildIds.All(g => !record.SpecifiedGuilds.Contains(g)))
+                return UnspecifyResult.NotSpecified;
+
+            var guilds = guildIds.Distinct().Intersect(record.SpecifiedGuilds);
+
+            using (var db = new WbContext())
+            {
+                var dbRecord = await db.Keywords
+                    .Include(k => k.SpecifiedGuilds)
+                    .FirstOrDefaultAsync(k => k.Id == record.Id);
+                if (dbRecord == null)
+                    return UnspecifyResult.NotSubscribed;
+
+                foreach (var g in dbRecord.SpecifiedGuilds.Where(g => guilds.Contains(g.GuildId)).ToList())
+                    dbRecord.SpecifiedGuilds.Remove(g);
+
+                await db.SaveChangesAsync();
+            }
+
+            record.SpecifiedGuilds.RemoveAll(g => guilds.Contains(g));
+
+            return UnspecifyResult.Success;
+        }
+
+        /// <summary>
         /// Mutes a channel for the given user.
         /// </summary>
         /// <param name="userId">User's ID</param>
@@ -502,11 +685,11 @@ namespace WazeBotDiscord.Keywords
         }
 
         /// <summary>
-        /// Gets a specific KeywordRecord from the list in memory.
+        /// Gets a specific <seealso cref="KeywordRecord"/> from the list in memory.
         /// </summary>
         /// <param name="userId">User ID for the record</param>
         /// <param name="keyword">The keyword for the record</param>
-        /// <returns>The requested KeywordRecord or null if not found</returns>
+        /// <returns>The requested <seealso cref="KeywordRecord"/> or null if not found</returns>
         KeywordRecord GetRecord(ulong userId, string keyword)
         {
             return _keywords.Find(k => k.UserId == userId && k.Keyword == keyword);
@@ -524,12 +707,11 @@ namespace WazeBotDiscord.Keywords
                 regOptions |= RegexOptions.IgnoreCase;
 
             return new Regex(keyword, regOptions, new TimeSpan(0, 0, 0, 0, 500));
-
         }
 
-        Boolean CheckRegexKeyword(string keyword)
+        bool CheckRegexKeyword(string keyword)
         {
-            return (keyword.StartsWith("/") && (keyword.EndsWith("/") || keyword.EndsWith("/i")));
+            return keyword.StartsWith("/") && (keyword.EndsWith("/") || keyword.EndsWith("/i"));
         }
 
         public async Task ReloadKeywordsAsync()
@@ -553,5 +735,19 @@ namespace WazeBotDiscord.Keywords
         Success,
         NotSubscribed,
         NotIgnored
+    }
+
+    public enum SpecifyResult
+    {
+        Success,
+        NotSubscribed,
+        AlreadySpecified
+    }
+
+    public enum UnspecifyResult
+    {
+        Success,
+        NotSubscribed,
+        NotSpecified
     }
 }

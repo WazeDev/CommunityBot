@@ -25,17 +25,8 @@ namespace WazeBotDiscord.Modules
         [Command("add"), Priority(10)]
         public async Task Add(string channelId1, string channelId2)
         {
-            ulong channelID1;
-            if (channelId1.StartsWith("<#") && channelId1.EndsWith(">"))
-                channelID1 = Convert.ToUInt64(channelId1.TrimStart('<').TrimStart('#').TrimEnd('>'));
-            else
-                channelID1 = Convert.ToUInt64(channelId1);
-
-            ulong channelID2;
-            if (channelId2.StartsWith("<#") && channelId2.EndsWith(">"))
-                channelID2 = Convert.ToUInt64(channelId2.TrimStart('<').TrimStart('#').TrimEnd('>'));
-            else
-                channelID2 = Convert.ToUInt64(channelId2);
+            ulong channelID1 = channelId1.GetChannelIDFromString();
+            ulong channelID2 = channelId2.GetChannelIDFromString();
 
             var channels = _channelSyncSvc.getSyncChannels(channelID1);
             if (channels != null) {
@@ -66,11 +57,7 @@ namespace WazeBotDiscord.Modules
         [Alias("delete")]
         public async Task Remove(string channelId)
         {
-            ulong channelID;
-            if (channelId.StartsWith("<#") && channelId.EndsWith(">"))
-                channelID = Convert.ToUInt64(channelId.TrimStart('<').TrimStart('#').TrimEnd('>'));
-            else
-                channelID = Convert.ToUInt64(channelId);
+            ulong channelID = channelId.GetChannelIDFromString();
 
             var channels = _channelSyncSvc.getSyncChannels(channelID);
             if (channels == null)

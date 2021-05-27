@@ -25,7 +25,7 @@ namespace WazeBotDiscord.Modules
             }
             else
             {
-                await ReplyAsync("Incorrect parameters provided. For a random comic use `!xkcd`, for a specific comic specify the comic number ex: `!xkcd 149`.");
+                await ReplyAsync("Incorrect parameters provided. For a random comic use `!xkcd`, for a specific comic provide the comic number ex: `!xkcd 149`.");
             }
             
         }
