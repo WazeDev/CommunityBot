@@ -168,6 +168,24 @@ namespace WazeBotDiscord
                 e.Property(r => r.GuildId).HasColumnName("guild_id").IsRequired();
             });
 
+            modelBuilder.Entity<DbKeywordSpecifiedChannel>(e =>
+            {
+                e.ToTable("keyword_specified_channel");
+                e.HasKey(r => r.Id);
+
+                e.Property(r => r.KeywordId).HasColumnName("keyword_id").IsRequired();
+                e.Property(r => r.ChannelId).HasColumnName("channel_id").IsRequired();
+            });
+
+            modelBuilder.Entity<DbKeywordSpecifiedGuild>(e =>
+            {
+                e.ToTable("keyword_specified_guild");
+                e.HasKey(r => r.Id);
+
+                e.Property(r => r.KeywordId).HasColumnName("keyword_id").IsRequired();
+                e.Property(r => r.GuildId).HasColumnName("guild_id").IsRequired();
+            });
+
             modelBuilder.Entity<DbUserMutedChannel>(e =>
             {
                 e.ToTable("keyword_user_muted_channel");
