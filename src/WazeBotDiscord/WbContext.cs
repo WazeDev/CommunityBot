@@ -138,6 +138,16 @@ namespace WazeBotDiscord
                     .WithOne(s => s.Keyword)
                     .HasForeignKey(s => s.KeywordId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasMany(r => r.SpecifiedChannels)
+                    .WithOne(s => s.Keyword)
+                    .HasForeignKey(s => s.KeywordId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasMany(r => r.SpecifiedGuilds)
+                    .WithOne(s => s.Keyword)
+                    .HasForeignKey(s => s.KeywordId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<DbKeywordIgnoredChannel>(e =>
