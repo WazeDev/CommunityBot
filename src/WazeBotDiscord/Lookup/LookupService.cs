@@ -142,7 +142,7 @@ namespace WazeBotDiscord.Lookup
         }
 
         /// <summary>
-        /// Adds a lookup sheet to the database for the server & channel the command is run in.  User just needs to specify the sheet ID which can be pulled from the Google Sheet URL
+        /// Adds a lookup sheet to the database for the server & channel the command is run in.  User just needs to provide the sheet ID which can be pulled from the Google Sheet URL
         /// </summary>
         /// <param name="guildID"></param>
         /// <param name="channelID"></param>

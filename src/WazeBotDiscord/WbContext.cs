@@ -138,6 +138,16 @@ namespace WazeBotDiscord
                     .WithOne(s => s.Keyword)
                     .HasForeignKey(s => s.KeywordId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasMany(r => r.SpecifiedChannels)
+                    .WithOne(s => s.Keyword)
+                    .HasForeignKey(s => s.KeywordId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasMany(r => r.SpecifiedGuilds)
+                    .WithOne(s => s.Keyword)
+                    .HasForeignKey(s => s.KeywordId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<DbKeywordIgnoredChannel>(e =>
@@ -152,6 +162,24 @@ namespace WazeBotDiscord
             modelBuilder.Entity<DbKeywordIgnoredGuild>(e =>
             {
                 e.ToTable("keyword_ignored_guild");
+                e.HasKey(r => r.Id);
+
+                e.Property(r => r.KeywordId).HasColumnName("keyword_id").IsRequired();
+                e.Property(r => r.GuildId).HasColumnName("guild_id").IsRequired();
+            });
+
+            modelBuilder.Entity<DbKeywordSpecifiedChannel>(e =>
+            {
+                e.ToTable("keyword_specified_channel");
+                e.HasKey(r => r.Id);
+
+                e.Property(r => r.KeywordId).HasColumnName("keyword_id").IsRequired();
+                e.Property(r => r.ChannelId).HasColumnName("channel_id").IsRequired();
+            });
+
+            modelBuilder.Entity<DbKeywordSpecifiedGuild>(e =>
+            {
+                e.ToTable("keyword_specified_guild");
                 e.HasKey(r => r.Id);
 
                 e.Property(r => r.KeywordId).HasColumnName("keyword_id").IsRequired();

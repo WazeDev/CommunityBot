@@ -34,7 +34,7 @@ namespace WazeBotDiscord.Modules
         {
             if (message == null)
             {
-                await ReplyAsync($"{Context.Message.Author.Mention}: You must specify a message to display.");
+                await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a message to display.");
                 return;
             }
 

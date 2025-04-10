@@ -21,7 +21,7 @@ namespace WazeBotDiscord.Modules
         [Command()]
         public async Task NoSearchTerm()
         {
-            await ReplyAsync("Please specify a search term. Ex: `!search Places`");
+            await ReplyAsync("Please provide a search term. Ex: `!search Places`");
         }
 
         [Command(RunMode = RunMode.Async), Priority(5)]

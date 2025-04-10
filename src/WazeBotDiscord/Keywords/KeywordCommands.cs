@@ -1,6 +1,5 @@
 ﻿using Discord.Commands;
 using Discord.WebSocket;
-using System;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -28,7 +27,7 @@ namespace WazeBotDiscord.Keywords
         [Command("test")]
         public async Task Test([Remainder] string testString = null)
         {
-            ulong guildID = 1; //bullshit a guildID so the CheckForKeyword doesn't fail when doing a muted/ignored guild lookup, if Context.Guild is not null, pull the real ID
+            ulong guildID = 1; //fake a guildID so the CheckForKeyword doesn't fail when doing a muted/ignored guild lookup, if Context.Guild is not null, pull the real ID
             if (Context.Guild != null)
                 guildID = Context.Guild.Id;
 
@@ -47,7 +46,7 @@ namespace WazeBotDiscord.Keywords
                 }
             }
             if (resultSB.Length > 0)
-                await ReplyAsync("Matched keyword(s) " + resultSB.ToString());
+                await ReplyAsync($"Matched keyword(s) {resultSB}");
             else
                 await ReplyAsync("No matches found.");
         }
@@ -88,7 +87,7 @@ namespace WazeBotDiscord.Keywords
         {
             if (keyword == null)
             {
-                await ReplyAsync($"{Context.Message.Author.Mention}: You must specify a keyword. For more help, see {_helpLink}.");
+                await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a keyword. For more help, see {_helpLink}.");
                 return;
             }
 
@@ -127,16 +126,14 @@ namespace WazeBotDiscord.Keywords
         {
             if (keyword == null)
             {
-                await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                    $"You must specify a keyword. For more help, see {_helpLink}.");
+                await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a keyword. For more help, see {_helpLink}.");
                 return;
             }
 
             var existed = await _kwdSvc.RemoveKeywordAsync(Context.Message.Author.Id, keyword);
 
             if (!existed)
-                await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                    "You were not subscribed to that keyword. No change was made.");
+                await ReplyAsync($"{Context.Message.Author.Mention}: You were not subscribed to that keyword. No change was made.");
             else
                 await ReplyAsync($"{Context.Message.Author.Mention}: Subscription to `{keyword}` removed.");
         }
@@ -159,33 +156,28 @@ namespace WazeBotDiscord.Keywords
                 var guild = await Context.Client.GetGuildAsync(guildId);
                 if (guild == null)
                 {
-                    await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                        $"That server ID is invalid. For more help, see {_helpLink}.");
+                    await ReplyAsync($"{Context.Message.Author.Mention}: That server ID is invalid. For more help, see {_helpLink}.");
                     return;
                 }
 
                 if (keyword == null)
                 {
-                    await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                        $"You must specify a keyword. For more help, see {_helpLink}.");
+                    await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a keyword. For more help, see {_helpLink}.");
                     return;
                 }
 
                 switch (await _kwdSvc.IgnoreGuildsAsync(Context.Message.Author.Id, keyword, guildId))
                 {
                     case IgnoreResult.Success:
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            $"Ignored keyword `{keyword}` in server {guild.Name}.");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: Ignored keyword `{keyword}` in server {guild.Name}.");
                         break;
 
                     case IgnoreResult.AlreadyIgnored:
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            "You're already ignoring that keyword in that server. No change made.");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're already ignoring that keyword in that server. No change made.");
                         break;
 
                     case IgnoreResult.NotSubscribed:
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            "You're not subscribed to that keyword. No change made.");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're not subscribed to that keyword. No change made.");
                         break;
                 }
             }
@@ -195,24 +187,18 @@ namespace WazeBotDiscord.Keywords
             {
                 //We want channelId as a string so people can directly reference a channel with #, then we strip out the reference data
                 //A hell of a lot easier than having to pull the channel ID...
-                ulong channelID;
-                if (channelId.StartsWith("<#") && channelId.EndsWith(">"))
-                    channelID = Convert.ToUInt64(channelId.TrimStart('<').TrimStart('#').TrimEnd('>'));
-                else
-                    channelID = Convert.ToUInt64(channelId);
+                ulong channelID = channelId.GetChannelIDFromString();
 
                 var rawChannel = await Context.Client.GetChannelAsync(channelID);
                 if (rawChannel == null)
                 {
-                    await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                        $"That channel ID is invalid. For more help, see {_helpLink}.");
+                    await ReplyAsync($"{Context.Message.Author.Mention}: That channel ID is invalid. For more help, see {_helpLink}.");
                     return;
                 }
 
                 if (keyword == null)
                 {
-                    await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                        $"You must specify a keyword. For more help, see {_helpLink}.");
+                    await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a keyword. For more help, see {_helpLink}.");
                     return;
                 }
 
@@ -221,18 +207,15 @@ namespace WazeBotDiscord.Keywords
                 switch (await _kwdSvc.IgnoreChannelsAsync(Context.Message.Author.Id, keyword, channelID))
                 {
                     case IgnoreResult.Success:
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            $"Ignored keyword `{keyword}` in channel {channel.Mention} (server {channel.Guild.Name}).");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: Ignored keyword `{keyword}` in channel {channel.Mention} (server {channel.Guild.Name}).");
                         break;
 
                     case IgnoreResult.AlreadyIgnored:
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            "You're already ignoring that keyword in that channel. No change made.");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're already ignoring that keyword in that channel. No change made.");
                         break;
 
                     case IgnoreResult.NotSubscribed:
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            "You're not subscribed to that keyword. No change made.");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're not subscribed to that keyword. No change made.");
                         break;
                 }
             }
@@ -300,8 +283,7 @@ namespace WazeBotDiscord.Keywords
             {
                 if (keyword == null)
                 {
-                    await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                        $"You must specify a keyword. For more help, see {_helpLink}.");
+                    await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a keyword. For more help, see {_helpLink}.");
                     return;
                 }
 
@@ -309,18 +291,15 @@ namespace WazeBotDiscord.Keywords
                 {
                     case UnignoreResult.Success:
                         var guild = await Context.Client.GetGuildAsync(guildId);
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            $"Unignored keyword `{keyword}` in server {guild.Name}.");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: Unignored keyword `{keyword}` in server {guild.Name}.");
                         break;
 
                     case UnignoreResult.NotIgnored:
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            "That keyword was not ignored in that server. No change made.");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: That keyword was not ignored in that server. No change made.");
                         break;
 
                     case UnignoreResult.NotSubscribed:
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            "You're not subscribed to that keyword. No change made.");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're not subscribed to that keyword. No change made.");
                         break;
                 }
             }
@@ -328,16 +307,11 @@ namespace WazeBotDiscord.Keywords
             [Command("channel")]
             public async Task UnignoreChannel(string channelId, [Remainder]string keyword = null)
             {
-                ulong channelID;
-                if (channelId.StartsWith("<#") && channelId.EndsWith(">"))
-                    channelID = Convert.ToUInt64(channelId.TrimStart('<').TrimStart('#').TrimEnd('>'));
-                else
-                    channelID = Convert.ToUInt64(channelId);
+                ulong channelID = channelId.GetChannelIDFromString();
 
                 if (keyword == null)
                 {
-                    await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                        $"You must specify a keyword. For more help, see {_helpLink}.");
+                    await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a keyword. For more help, see {_helpLink}.");
                     return;
                 }
 
@@ -345,18 +319,15 @@ namespace WazeBotDiscord.Keywords
                 {
                     case UnignoreResult.Success:
                         var channel = (await Context.Client.GetChannelAsync(channelID)) as SocketTextChannel;
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            $"Unignored keyword `{keyword}` in channel {channel.Mention} (server {channel.Guild.Name}).");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: Unignored keyword `{keyword}` in channel {channel.Mention} (server {channel.Guild.Name}).");
                         break;
 
                     case UnignoreResult.NotIgnored:
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            "That keyword was not ignored in that channel. No change made.");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: That keyword was not ignored in that channel. No change made.");
                         break;
 
                     case UnignoreResult.NotSubscribed:
-                        await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                            "You're not subscribed to that keyword. No change made.");
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're not subscribed to that keyword. No change made.");
                         break;
                 }
             }
@@ -381,8 +352,7 @@ namespace WazeBotDiscord.Keywords
                 var guild = await Context.Client.GetGuildAsync(guildId);
                 if (guild == null)
                 {
-                    await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                        $"That server ID is invalid. For more help, see {_helpLink}.");
+                    await ReplyAsync($"{Context.Message.Author.Mention}: That server ID is invalid. For more help, see {_helpLink}.");
                     return;
                 }
 
@@ -393,16 +363,11 @@ namespace WazeBotDiscord.Keywords
             [Command("channel")]
             public async Task MuteChannel(string channelId)
             {
-                ulong channelID;
-                if (channelId.StartsWith("<#") && channelId.EndsWith(">"))
-                    channelID = Convert.ToUInt64(channelId.TrimStart('<').TrimStart('#').TrimEnd('>'));
-                else
-                    channelID = Convert.ToUInt64(channelId);
+                ulong channelID = channelId.GetChannelIDFromString();
                 var channel = await Context.Client.GetChannelAsync(channelID);
                 if (channel == null)
                 {
-                    await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                        $"That channel ID is invalid. For more help, see {_helpLink}.");
+                    await ReplyAsync($"{Context.Message.Author.Mention}: That channel ID is invalid. For more help, see {_helpLink}.");
                     return;
                 }
 
@@ -466,8 +431,7 @@ namespace WazeBotDiscord.Keywords
                 var guild = await Context.Client.GetGuildAsync(guildId);
                 if (guild == null)
                 {
-                    await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                        $"That server ID is invalid. For more help, see {_helpLink}.");
+                    await ReplyAsync($"{Context.Message.Author.Mention}: That server ID is invalid. For more help, see {_helpLink}.");
                     return;
                 }
 
@@ -478,21 +442,211 @@ namespace WazeBotDiscord.Keywords
             [Command("channel")]
             public async Task UnmuteChannel(string channelId)
             {
-                ulong channelID;
-                if (channelId.StartsWith("<#") && channelId.EndsWith(">"))
-                    channelID = Convert.ToUInt64(channelId.TrimStart('<').TrimStart('#').TrimEnd('>'));
-                else
-                    channelID = Convert.ToUInt64(channelId);
+                ulong channelID = channelId.GetChannelIDFromString();
                 var channel = await Context.Client.GetChannelAsync(channelID);
                 if (channel == null)
                 {
-                    await ReplyAsync($"{Context.Message.Author.Mention}: " +
-                        $"That channel ID is invalid. For more help, see {_helpLink}.");
+                    await ReplyAsync($"{Context.Message.Author.Mention}: That channel ID is invalid. For more help, see {_helpLink}.");
                     return;
                 }
 
                 await _kwdSvc.UnmuteChannelAsync(Context.Message.Author.Id, channelID);
                 await ReplyAsync($"{Context.Message.Author.Mention}: Unmuted {channel.Name}.");
+            }
+        }
+
+        [Group("specify")]
+        public class SpecifyKeywordModule : ModuleBase
+        {
+            readonly KeywordService _kwdSvc;
+            readonly string _helpLink = "<https://wazeopedia.waze.com/wiki/USA/CommunityBot#Keyword_Subscriptions>";
+
+            public SpecifyKeywordModule(KeywordService kwdSvc)
+            {
+                _kwdSvc = kwdSvc;
+            }
+
+            [Command("server")]
+            [Alias("guild")]
+            public async Task SpecifyGuild(ulong guildId, [Remainder] string keyword = null)
+            {
+                var guild = await Context.Client.GetGuildAsync(guildId);
+                if (guild == null)
+                {
+                    await ReplyAsync($"{Context.Message.Author.Mention}: That server ID is invalid. For more help, see {_helpLink}.");
+                    return;
+                }
+
+                if (keyword == null)
+                {
+                    await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a keyword. For more help, see {_helpLink}.");
+                    return;
+                }
+
+                switch (await _kwdSvc.SpecifyGuildsAsync(Context.Message.Author.Id, keyword, guildId))
+                {
+                    case SpecifyResult.Success:
+                        await ReplyAsync($"{Context.Message.Author.Mention}: Specified keyword `{keyword}` in server {guild.Name}.");
+                        break;
+
+                    case SpecifyResult.AlreadySpecified:
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're already specifying that keyword in that server. No change made.");
+                        break;
+
+                    case SpecifyResult.NotSubscribed:
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're not subscribed to that keyword. No change made.");
+                        break;
+                }
+            }
+
+            [Command("channel")]
+            public async Task SpecifyChannel(string channelId, [Remainder] string keyword = null)
+            {
+                //We want channelId as a string so people can directly reference a channel with #, then we strip out the reference data
+                //A hell of a lot easier than having to pull the channel ID...
+                ulong channelID = channelId.GetChannelIDFromString();
+
+                var rawChannel = await Context.Client.GetChannelAsync(channelID);
+                if (rawChannel == null)
+                {
+                    await ReplyAsync($"{Context.Message.Author.Mention}: That channel ID is invalid. For more help, see {_helpLink}.");
+                    return;
+                }
+
+                if (keyword == null)
+                {
+                    await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a keyword. For more help, see {_helpLink}.");
+                    return;
+                }
+
+                var channel = rawChannel as SocketTextChannel;
+
+                switch (await _kwdSvc.SpecifyChannelsAsync(Context.Message.Author.Id, keyword, channelID))
+                {
+                    case SpecifyResult.Success:
+                        await ReplyAsync($"{Context.Message.Author.Mention}: Specified keyword `{keyword}` in channel {channel.Mention} (server {channel.Guild.Name}).");
+                        break;
+
+                    case SpecifyResult.AlreadySpecified:
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're already specifying that keyword in that channel. No change made.");
+                        break;
+
+                    case SpecifyResult.NotSubscribed:
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're not subscribed to that keyword. No change made.");
+                        break;
+                }
+            }
+
+            [Command("list")]
+            public async Task ListSpecified([Remainder] string notUsed = null)
+            {
+                var keywords = _kwdSvc.GetKeywordsForUser(Context.Message.Author.Id);
+                var reply = new StringBuilder();
+
+                if (keywords.Count == 0)
+                {
+                    reply.Append(Context.Message.Author.Mention);
+                    reply.Append(": You have no keywords.");
+                }
+                else
+                {
+                    foreach (var k in keywords)
+                    {
+                        if (k.SpecifiedChannels.Count > 0 || k.SpecifiedGuilds.Count > 0)
+                        {
+                            if (reply.Length > 0)
+                                reply.Append("\n"); //need an extra new line to space out the list
+                            reply.Append($"`{k.Keyword}`");
+                            if (k.SpecifiedChannels.Count > 0)
+                            {
+                                reply.Append($"\nSpecified Channels: ");
+                                for (var i = 0; i < k.SpecifiedChannels.Count; i++)
+                                {
+                                    reply.Append($"{(i > 0 ? ", " : "")}<#{k.SpecifiedChannels[i]}>");
+                                }
+                            }
+                            if (k.SpecifiedGuilds.Count > 0)
+                            {
+                                reply.Append($"\nSpecified Servers: ");
+                                for (var i = 0; i < k.SpecifiedGuilds.Count; i++)
+                                {
+                                    var guild = await Context.Client.GetGuildAsync(k.SpecifiedGuilds[i]);
+                                    reply.Append($"{(i > 0 ? ", " : "")}{guild.Name}");
+                                }
+                            }
+                        }
+                    }
+                }
+                if (reply.Length == 0)
+                    reply.Append("No keywords are specified in any channels or servers.");
+                await ReplyAsync(reply.ToString());
+            }
+        }
+
+        [Group("unspecify")]
+        public class UnspecifyKeywordModule : ModuleBase
+        {
+            readonly KeywordService _kwdSvc;
+            readonly string _helpLink = "<https://wazeopedia.waze.com/wiki/USA/CommunityBot#Keyword_Subscriptions>";
+
+            public UnspecifyKeywordModule(KeywordService kwdSvc)
+            {
+                _kwdSvc = kwdSvc;
+            }
+
+            [Command("server")]
+            [Alias("guild")]
+            public async Task UnspecifyGuild(ulong guildId, [Remainder] string keyword = null)
+            {
+                if (keyword == null)
+                {
+                    await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a keyword. For more help, see {_helpLink}.");
+                    return;
+                }
+
+                switch (await _kwdSvc.UnspecifyGuildsAsync(Context.Message.Author.Id, keyword, guildId))
+                {
+                    case UnspecifyResult.Success:
+                        var guild = await Context.Client.GetGuildAsync(guildId);
+                        await ReplyAsync($"{Context.Message.Author.Mention}: Unspecified keyword `{keyword}` in server {guild.Name}.");
+                        break;
+
+                    case UnspecifyResult.NotSpecified:
+                        await ReplyAsync($"{Context.Message.Author.Mention}: That keyword was not specified in that server. No change made.");
+                        break;
+
+                    case UnspecifyResult.NotSubscribed:
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're not subscribed to that keyword. No change made.");
+                        break;
+                }
+            }
+
+            [Command("channel")]
+            public async Task UnspecifyChannel(string channelId, [Remainder] string keyword = null)
+            {
+                ulong channelID = channelId.GetChannelIDFromString();
+
+                if (keyword == null)
+                {
+                    await ReplyAsync($"{Context.Message.Author.Mention}: You must provide a keyword. For more help, see {_helpLink}.");
+                    return;
+                }
+
+                switch (await _kwdSvc.UnspecifyChannelsAsync(Context.Message.Author.Id, keyword, channelID))
+                {
+                    case UnspecifyResult.Success:
+                        var channel = (await Context.Client.GetChannelAsync(channelID)) as SocketTextChannel;
+                        await ReplyAsync($"{Context.Message.Author.Mention}: Unspecified keyword `{keyword}` in channel {channel.Mention} (server {channel.Guild.Name}).");
+                        break;
+
+                    case UnspecifyResult.NotSpecified:
+                        await ReplyAsync($"{Context.Message.Author.Mention}: That keyword was not specified in that channel. No change made.");
+                        break;
+
+                    case UnspecifyResult.NotSubscribed:
+                        await ReplyAsync($"{Context.Message.Author.Mention}: You're not subscribed to that keyword. No change made.");
+                        break;
+                }
             }
         }
     }
