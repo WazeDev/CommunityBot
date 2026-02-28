@@ -44,7 +44,7 @@ namespace WazeBotDiscord.Scripts
             var searchString = origSearchString.ToLowerInvariant();
             var parser = new HtmlParser();
 
-            string sheetURL = $"https://docs.google.com/spreadsheets/u/1/d/1yrEZMrQyMjhgBAJuNj7Y8z0GxdKWgIEkHIQBhUM2H9k/pubhtml";
+            string sheetURL = $"https://docs.google.com/spreadsheets/u/1/d/1yrEZMrQyMjhgBAJuNj7Y8z0GxdKWgIEkHIQBhUM2H9k/pubhtml/sheet?gid=0";
             var resp = await _client.GetAsync(sheetURL);
             var doc = await parser.ParseDocumentAsync(await resp.Content.ReadAsStringAsync());
 

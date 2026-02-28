@@ -34,7 +34,7 @@ namespace WazeBotDiscord.Abbreviation
         {
             var searchString = origSearchString.ToLowerInvariant();
                         var parser = new HtmlParser();
-            string sheetURL = $"https://docs.google.com/spreadsheets/d/1-K3YMyIgos-fidRtMbKHFpIRzlAQu9DGYFk7PoedwzY/pubhtml?gid=1231483217&single=true";
+            string sheetURL = $"https://docs.google.com/spreadsheets/d/1-K3YMyIgos-fidRtMbKHFpIRzlAQu9DGYFk7PoedwzY/pubhtml/sheet?gid=1231483217&single=true";
 
             var resp = await _client.GetAsync(sheetURL);
 

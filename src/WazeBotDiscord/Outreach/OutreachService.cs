@@ -38,9 +38,9 @@ namespace WazeBotDiscord.Outreach
 
             string sheetURL = "";
             if (sheet.GId != "") //gid has been specified
-                sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml?gid={sheet.GId}&single=true";
+                sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml/sheet?gid={sheet.GId}&single=true";
             else
-                sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml";
+                sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml/sheet?gid=0";
             return sheetURL;
         }
 
@@ -55,9 +55,9 @@ namespace WazeBotDiscord.Outreach
             var parser = new HtmlParser();
             string sheetURL;
             if (sheet.GId != "") //gid has been specified
-                sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml?gid={sheet.GId}&single=true";
+                sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml/sheet?gid={sheet.GId}&single=true";
             else
-                sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml";
+                sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml/sheet?gid=0";
             var resp = await _client.GetAsync(sheetURL);
 
             if (!resp.IsSuccessStatusCode)
