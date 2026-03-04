@@ -22,12 +22,15 @@ namespace WazeBotDiscord.Modules
 
             Wiki profile
             https://wazeopedia.waze.com/wiki/USA/User:justins83
+
+            Discuss profile
+            https://www.waze.com/discuss/g?username=xanderb
         */
 
         const string editorProfileBase = "https://www.waze.com/user/editor/";
         const string forumProfileBase = "https://www.waze.com/forum/memberlist.php?mode=viewprofile&un=";
         const string wikiProfileBase = "https://wazeopedia.waze.com/wiki/USA/User:";
-        const string discussProfileBase = "https://www.waze.com/discuss/u/";
+        const string discussProfileBase = "https://www.waze.com/discuss/g?username=";
 
         [Command("profile")]
         public async Task Tiles([Remainder]string editorName )
@@ -35,7 +38,7 @@ namespace WazeBotDiscord.Modules
             string editorProfile = editorProfileBase + editorName;
             string forumProfile = forumProfileBase + editorName;
             string wikiProfile = wikiProfileBase + editorName;
-            string discussProfile = discussProfileBase + editorName + "/summary";
+            string discussProfile = discussProfileBase + editorName;
 
             forumProfile = await CheckProfile(forumProfile, "forum");
             wikiProfile = await CheckProfile(wikiProfile, "wiki");
