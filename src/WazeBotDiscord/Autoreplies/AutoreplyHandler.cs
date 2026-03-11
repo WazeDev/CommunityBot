@@ -8,7 +8,13 @@ namespace WazeBotDiscord.Autoreplies
     {
         public static async Task HandleAutoreplyAsync(SocketMessage inMsg, AutoreplyService arService)//, IReadOnlyCollection<SocketGuild> guilds)
         {
-            var msg = (SocketUserMessage)inMsg;
+            // 1. Safely check if the message is actually a standard text message from a user
+            var msg = inMsg as SocketUserMessage;
+            
+            // 2. If it is a System Message (msg is null), stop trying to process it and exit safely
+            if (msg == null) 
+                return;
+
             var content = msg.Content.ToLowerInvariant();
             Autoreply ar;
 
@@ -24,6 +30,7 @@ namespace WazeBotDiscord.Autoreplies
                 return;
 
             await inMsg.Channel.SendMessageAsync(ar.Reply);
+            
             //you can get the channel from the guild with GetTextChannelAsync then SendMessageAsync on it like any other channel
             /*if (msg.Channel.Id == 359327158944137228) {
                 SocketGuild syncGuild = null;
