@@ -1,9 +1,19 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26403.0
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.37027.11
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WazeBotDiscord", "src\WazeBotDiscord\WazeBotDiscord.csproj", "{387A6E59-AB94-4EB2-B736-400579E4724E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WazeBotDiscord", "src\WazeBotDiscord\WazeBotDiscord.csproj", "{387A6E59-AB94-4EB2-B736-400579E4724E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C8CE99F9-00AF-4710-89FC-FF7E0D753262}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		Dockerfile = Dockerfile
+		restartbot.sh = restartbot.sh
+		startbot.sh = startbot.sh
+		stopbot.sh = stopbot.sh
+		updatebot.sh = updatebot.sh
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,5 +28,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {296DCFDC-1484-4B6A-9695-F7A31573AEDB}
 	EndGlobalSection
 EndGlobal

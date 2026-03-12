@@ -263,3 +263,19 @@ __pycache__/
 /src/WazeBotDiscord/Properties/launchSettings.json
 *.ide
 src/WazeBotDiscord/Keywords/KeywordCommands.cs
+
+# =========================
+# Custom Bot & Server Files
+# =========================
+
+# Ignore all environment variable files
+.env
+*.env
+.env.*
+
+# Ignore local bash script execution logs (if any are generated)
+*.sh.log
+
+# Ignore Vim temporary swap files
+.*.swp
+*.swp

@@ -1,9 +1,0 @@
-version: "3.8"
-services:
-    communitybot:
-        build: 
-            context: .
-            dockerfile: Dockerfile.dotnet2.1
-        image: communitybot:dotnet-2.1-alpine
-        env_file: communitybot.env
-        restart: always
