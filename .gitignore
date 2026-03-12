@@ -273,6 +273,9 @@ src/WazeBotDiscord/Keywords/KeywordCommands.cs
 *.env
 .env.*
 
+# EXCEPT the example template (Allow this one!)
+!*.env.example
+
 # Ignore local bash script execution logs (if any are generated)
 *.sh.log
 
