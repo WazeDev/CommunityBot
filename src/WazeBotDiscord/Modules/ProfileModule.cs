@@ -63,7 +63,7 @@ namespace WazeBotDiscord.Modules
             sr.AppendLine($":bust_in_silhouette: **{pr.EditorName}**");
             sr.AppendLine("_Editor Profile_");
             sr.AppendLine(pr.EditorProfile);
-            sr.AppendLine("_Discuss User Profile_");
+            sr.AppendLine("_Forum Profile_");
             sr.AppendLine(pr.ForumProfile);
             sr.AppendLine("_Wiki Profile_");
             sr.AppendLine(pr.WikiProfile);*/
