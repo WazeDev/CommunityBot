@@ -1,5 +1,5 @@
 # Stage 1: Build the code
-FROM mcr.microsoft.com/dotnet/core/sdk:2.1-alpine AS build
+FROM mcr.microsoft.com/dotnet/core/sdk:3.1-alpine AS build
 WORKDIR /source
 
 # Copy EVERYTHING from the local host folder into the container
@@ -10,7 +10,7 @@ WORKDIR /source/src/WazeBotDiscord
 RUN dotnet publish -c Release -o /app/publish
 
 # Stage 2: Run the bot
-FROM mcr.microsoft.com/dotnet/core/runtime:2.1-alpine
+FROM mcr.microsoft.com/dotnet/core/runtime:3.1-alpine
 WORKDIR /app
 COPY --from=build /app/publish .
 
