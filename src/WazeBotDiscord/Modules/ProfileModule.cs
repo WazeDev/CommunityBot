@@ -17,18 +17,18 @@ namespace WazeBotDiscord.Modules
             Editor profile
             https://www.waze.com/user/editor/justins83 (may not exist)
 
-            Forum profile
-            https://www.waze.com/forum/memberlist.php?mode=viewprofile&un=justins83
+            Discuss User profile (forumprofile)
+            https://www.waze.com/discuss/u/xanderb/summary
 
             Wiki profile
             https://wazeopedia.waze.com/wiki/USA/User:justins83
 
-            Discuss profile
+            Discuss Group profile
             https://www.waze.com/discuss/g?username=xanderb
         */
 
         const string editorProfileBase = "https://www.waze.com/user/editor/";
-        const string forumProfileBase = "https://www.waze.com/forum/memberlist.php?mode=viewprofile&un=";
+        const string forumProfileBase = "https://www.waze.com/discuss/u/";
         const string wikiProfileBase = "https://wazeopedia.waze.com/wiki/USA/User:";
         const string discussProfileBase = "https://www.waze.com/discuss/g?username=";
 
@@ -36,7 +36,7 @@ namespace WazeBotDiscord.Modules
         public async Task Tiles([Remainder]string editorName )
         {
             string editorProfile = editorProfileBase + editorName;
-            string forumProfile = forumProfileBase + editorName;
+            string forumProfile = forumProfileBase + editorName + "/summary";
             string wikiProfile = wikiProfileBase + editorName;
             string discussProfile = discussProfileBase + editorName;
 
@@ -63,7 +63,7 @@ namespace WazeBotDiscord.Modules
             sr.AppendLine($":bust_in_silhouette: **{pr.EditorName}**");
             sr.AppendLine("_Editor Profile_");
             sr.AppendLine(pr.EditorProfile);
-            sr.AppendLine("_Forum Profile_");
+            sr.AppendLine("_Discuss User Profile_");
             sr.AppendLine(pr.ForumProfile);
             sr.AppendLine("_Wiki Profile_");
             sr.AppendLine(pr.WikiProfile);*/
@@ -112,11 +112,11 @@ namespace WazeBotDiscord.Modules
             StringBuilder sr = new StringBuilder();
             sr.AppendLine("[Editor Profile](" + item.EditorProfile + ")");
             if (item.ForumProfile.Contains("waze.com"))
-                sr.AppendLine("[Forum Profile](" + item.ForumProfile + ")");
+                sr.AppendLine("[Discuss User Profile](" + item.ForumProfile + ")");
             else
                 sr.AppendLine(item.ForumProfile); 
             if (item.DiscussProfile.Contains("waze.com"))
-                sr.AppendLine("[Discuss Profile](" + item.DiscussProfile + ")");
+                sr.AppendLine("[Discuss Group Profile](" + item.DiscussProfile + ")");
             else
                 sr.AppendLine(item.DiscussProfile);
             if (item.WikiProfile.Contains("waze.com"))
