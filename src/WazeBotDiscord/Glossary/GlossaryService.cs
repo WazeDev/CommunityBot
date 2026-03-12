@@ -86,21 +86,54 @@ namespace WazeBotDiscord.Glossary
                         if (string.IsNullOrEmpty(alternates) || alternates == "~")
                             alternates = "_(none)_";
 
-                        // Description (Handle line breaks)
+                        // Description Formatting
                         var descriptionCell = row.Cells[2];
-                        var description = descriptionCell.InnerHtml
+
+                        // Convert HTML <a> tags into Discord-friendly Markdown links
+                        foreach (var link in descriptionCell.QuerySelectorAll("a"))
+                        {
+                            var href = link.GetAttribute("href");
+                            if (!string.IsNullOrEmpty(href))
+                            {
+                                // Fix relative anchor links (e.g. #Permalink) to absolute URLs
+                                if (href.StartsWith("#"))
+                                {
+                                    href = "https://www.waze.com/discuss/t/glossary/377948" + href;
+                                }
+
+                                // AngleSharp allows us to replace the HTML node with a text string natively
+                                link.OuterHtml = $"[{link.TextContent}]({href})";
+                            }
+                        }
+
+                        // Replicate your original newline formatting, then strip any remaining HTML tags
+                        descriptionCell.InnerHtml = descriptionCell.InnerHtml
                             .Replace("<p>", "\n")
                             .Replace("</p>", "")
                             .Replace("<br>", "\n")
-                            .Trim();
+                            .Replace("<br/>", "\n");
 
-                        // Modified Date
+                        var description = descriptionCell.TextContent.Trim();
+
+                        // Date Parsing
                         DateTime dt = DateTime.MinValue;
                         if (row.Cells.Length > 3)
                         {
-                            var dtString = row.Cells[3].TextContent.Trim().Split(' ')[0];
-                            if (DateTime.TryParse(dtString, out var parsedDate))
+                            // Split on ALL whitespace (spaces, tabs, newlines) to ensure we isolate just the date string
+                            var textParts = row.Cells[3].TextContent.Trim().Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+
+                            if (textParts.Length > 0)
                             {
+                                var dtString = textParts[0];
+
+                                // Try standard parsing first
+                                if (!DateTime.TryParse(dtString, out var parsedDate))
+                                {
+                                    // Fallback to the exact format from your original code just in case
+                                    DateTime.TryParseExact(dtString, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out parsedDate);
+                                }
+
+                                // Even if it failed and remains MinValue, SpecifyKind keeps it safe
                                 dt = DateTime.SpecifyKind(parsedDate, DateTimeKind.Utc);
                             }
                         }
