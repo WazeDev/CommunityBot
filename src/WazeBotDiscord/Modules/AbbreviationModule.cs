@@ -19,7 +19,7 @@ namespace WazeBotDiscord.Modules
         [Command]
         public async Task GetUrl()
         {
-            await ReplyAsync("<https://wazeopedia.waze.com/wiki/USA/Abbreviations_and_acronyms>");
+            await ReplyAsync("<https://www.waze.com/discuss/t/abbreviations-and-acronyms/377720>");
         }
 
         [Command(RunMode = RunMode.Async), Priority(5)]
