@@ -42,7 +42,6 @@ namespace WazeBotDiscord.Modules
 
             forumProfile = await CheckProfile(forumProfile, "forum");
             wikiProfile = await CheckProfile(wikiProfile, "wiki");
-            discussProfile = await CheckProfile(discussProfile, "Discuss");
 
             ProfileResult pr = new ProfileResult();
             pr.EditorName = editorName;
