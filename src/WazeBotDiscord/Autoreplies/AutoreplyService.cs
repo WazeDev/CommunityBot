@@ -1,6 +1,8 @@
 ﻿using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
+using System.Threading;
+
 //using System.Linq;
 using System.Threading.Tasks;
 
@@ -9,37 +11,55 @@ namespace WazeBotDiscord.Autoreplies
     public class AutoreplyService
     {
         List<Autoreply> _autoreplies;
+        readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        bool _initialized = false;
 
-        public async Task InitAutoreplyServiceAsync()
+        private async Task EnsureInitializedAsync()
         {
-            using (var db = new WbContext())
+            if (_initialized) return;
+
+            await _initLock.WaitAsync();
+            try
             {
-                _autoreplies = await db.Autoreplies.ToListAsync();
+                if (_initialized) return; // double check after acquiring lock
+                using (var db = new WbContext())
+                {
+                    _autoreplies = await db.Autoreplies.ToListAsync();
+                }
+                _initialized = true;
+            }
+            finally
+            {
+                _initLock.Release();
             }
         }
 
-        public List<Autoreply> GetAllAutoreplies(ulong channelId, ulong guildId)
+        public async Task<List<Autoreply>> GetAllAutoreplies(ulong channelId, ulong guildId)
         {
+            await EnsureInitializedAsync();
             return BuildList(channelId, guildId);
         }
 
-        public Autoreply SearchForAutoreply(string content, SocketTextChannel channel)
+        public async Task<Autoreply> SearchForAutoreply(string content, SocketTextChannel channel)
         {
+            await EnsureInitializedAsync();
             var autoreplyList = BuildList(channel.Id, channel.Guild.Id);
 
             return autoreplyList.Find(r => content.StartsWith($"!{r.Trigger}"));
         }
 
-        public Autoreply GetExactAutoreply(ulong channelId, ulong guildId, string trigger)
+        public async Task<Autoreply> GetExactAutoreply(ulong channelId, ulong guildId, string trigger)
         {
+            await EnsureInitializedAsync();
             return _autoreplies.Find(r => r.ChannelId == channelId
                                           && r.GuildId == guildId
                                           && string.CompareOrdinal(r.Trigger, trigger) == 0);
         }
 
-        public async Task<bool> AddOrModifyAutoreply(Autoreply reply)
+        public async  Task<bool> AddOrModifyAutoreply(Autoreply reply)
         {
-            var existing = GetExactAutoreply(reply.ChannelId, reply.GuildId, reply.Trigger);
+            await EnsureInitializedAsync();
+            var existing = await GetExactAutoreply(reply.ChannelId, reply.GuildId, reply.Trigger);
             if (existing == null)
             {
                 _autoreplies.Add(reply);
@@ -68,7 +88,8 @@ namespace WazeBotDiscord.Autoreplies
 
         public async Task<bool> RemoveAutoreply(ulong channelId, ulong guildId, string trigger)
         {
-            var autoreply = GetExactAutoreply(channelId, guildId, trigger);
+            await EnsureInitializedAsync();
+            var autoreply = await GetExactAutoreply(channelId, guildId, trigger);
             if (autoreply == null)
                 return false;
 
@@ -83,23 +104,27 @@ namespace WazeBotDiscord.Autoreplies
             return true;
         }
 
-        public List<Autoreply> GetChannelAutoreplies(ulong channelId)
+        public async Task<List<Autoreply>> GetChannelAutoreplies(ulong channelId)
         {
+            await EnsureInitializedAsync();
             return _autoreplies.FindAll(a => a.ChannelId == channelId);
         }
 
-        public List<Autoreply> GetGuildAutoreplies(ulong guildId)
+        public async Task<List<Autoreply>> GetGuildAutoreplies(ulong guildId)
         {
+            await EnsureInitializedAsync();
             return _autoreplies.FindAll(a => a.ChannelId == 1 && a.GuildId == guildId);
         }
 
-        public List<Autoreply> GetGlobalAutoreplies()
+        public async Task<List<Autoreply>> GetGlobalAutoreplies()
         {
+            await EnsureInitializedAsync();
             return _autoreplies.FindAll(a => a.ChannelId == 1 && a.GuildId == 1);
         }
 
-        public Autoreply GetGlobalAutoreply(string msg)
+        public async Task<Autoreply> GetGlobalAutoreply(string msg)
         {
+            await EnsureInitializedAsync();
             var globals = _autoreplies.FindAll(a => a.ChannelId == 1 && a.GuildId == 1);
             return globals.Find(r => msg.StartsWith($"!{r.Trigger}"));
         }
@@ -116,7 +141,8 @@ namespace WazeBotDiscord.Autoreplies
         public async Task ReloadAutorepliesAsync()
         {
             _autoreplies.Clear();
-            await InitAutoreplyServiceAsync();
+            _initialized = false;
+            await EnsureInitializedAsync();
         }
     }
 }

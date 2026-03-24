@@ -1,79 +1,61 @@
-﻿using Discord.Commands;
+﻿using Discord.Interactions;
 using System.Threading.Tasks;
 using WazeBotDiscord.Outreach;
 using WazeBotDiscord.Utilities;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("outreach")]
-    public class OutreachModule : ModuleBase
+    [Group("outreach", "Outreach spreadsheet commands")]
+    public class OutreachModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly OutreachService _outreachSvc;
 
-        public OutreachModule(OutreachService lookupSvc)
+        public OutreachModule(OutreachService outreachSvc)
         {
-            _outreachSvc = lookupSvc;
+            _outreachSvc = outreachSvc;
         }
 
-        [Command]
+        [SlashCommand("url", "Get the outreach spreadsheet URL for this channel")]
         public async Task GetUrl()
         {
-            await ReplyAsync(_outreachSvc.GetChannelSheetUrl(Context.Channel.Id));
+            await DeferAsync(ephemeral: true);
+            await FollowupAsync(await _outreachSvc.GetChannelSheetUrl(Context.Channel.Id));
         }
 
-        [Command(RunMode = RunMode.Async), Priority(5)]
-        public async Task Search([Remainder]string searchString)
+        [SlashCommand("search", "Search the outreach spreadsheet for this channel")]
+        public async Task Search([Summary("term", "Search term (minimum 4 characters)")] string searchString)
         {
             if (searchString.Length < 4)
             {
-                await ReplyAsync("Your search term must be at least four characters long.");
+                await RespondAsync("Your search term must be at least four characters long.", ephemeral: true);
                 return;
             }
 
-            await ReplyAsync(await _outreachSvc.SearchSheetAsync(Context.Channel.Id, searchString));
+            await DeferAsync();
+            await FollowupAsync(await _outreachSvc.SearchSheetAsync(Context.Channel.Id, searchString));
         }
 
-        [Command("add"), Priority(10)]
+        [SlashCommand("add", "Add or update the outreach spreadsheet for this channel")]
         [RequireSmOrAbove]
-        public async Task Add([Remainder]string sheetID = null)
+        public async Task Add(
+            [Summary("sheetid", "The Google Sheet ID")] string sheetId,
+            [Summary("gid", "The sheet GID (optional)")] string gid = null)
         {
-            if (sheetID == null)
-            {
-                await ReplyAsync($"{Context.Message.Author.Mention}: You must specify a sheet ID.");
-                return;
-            }
-            var sheetInfo = sheetID.Split(" ");
             bool result;
-            if (sheetInfo.Length > 2)
-            {
-                await ReplyAsync("Incorrect paramaters specified.");
-                return;
-            }
-            else if (sheetInfo.Length == 2)
-            {
-                result = await _outreachSvc.AddSheetIDAsync(Context.Guild.Id, Context.Channel.Id, sheetInfo[0], sheetInfo[1]);
-            }
+            if (gid != null)
+                result = await _outreachSvc.AddSheetIDAsync(Context.Guild.Id, Context.Channel.Id, sheetId, gid);
             else
-                result = await _outreachSvc.AddSheetIDAsync(Context.Guild.Id, Context.Channel.Id, sheetID);
+                result = await _outreachSvc.AddSheetIDAsync(Context.Guild.Id, Context.Channel.Id, sheetId);
 
-
-            var reply = $"{Context.Message.Author.Mention}: outreach sheet added.";
-            if (result == false)
-                reply = $"{Context.Message.Author.Mention}: outreach sheet modified.";
-
-            await ReplyAsync(reply);
+            await RespondAsync(result ? "Outreach sheet added." : "Outreach sheet modified.", ephemeral: true);
         }
 
-        [Command("remove"), Priority(9)]
+        [SlashCommand("remove", "Remove the outreach spreadsheet for this channel")]
         [RequireSmOrAbove]
-        public async Task Remove([Remainder]string sheetID = null)
+        public async Task Remove()
         {
             var removed = await _outreachSvc.RemoveSheetIDAsync(Context.Guild.Id, Context.Channel.Id);
-
-            if (removed)
-                await ReplyAsync("Outreach sheet removed.");
-            else
-                await ReplyAsync("No outreach sheet was set for this channel.");
+            await RespondAsync(removed ? "Outreach sheet removed." : "No outreach sheet was set for this channel.", ephemeral: true);
         }
     }
 }

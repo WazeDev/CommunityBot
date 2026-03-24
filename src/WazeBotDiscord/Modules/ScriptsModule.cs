@@ -1,37 +1,37 @@
-﻿using Discord.Commands;
+﻿using Discord.Interactions;
 using System.Threading.Tasks;
 using WazeBotDiscord.Scripts;
 using WazeBotDiscord.Utilities;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("scripts")]
-    [Alias("script")]
-    public class ScriptsModule : ModuleBase
+    [Group("scripts", "Waze scripts commands")]
+    public class ScriptsModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly ScriptsService _scriptsService;
 
-        public ScriptsModule(ScriptsService lookupSvc)
+        public ScriptsModule(ScriptsService scriptsService)
         {
-            _scriptsService = lookupSvc;
+            _scriptsService = scriptsService;
         }
 
-        [Command]
+        [SlashCommand("url", "Get the scripts spreadsheet URL")]
         public async Task GetUrl()
         {
-            await ReplyAsync(_scriptsService.GetChannelSheetUrl(Context.Channel.Id));
+            await RespondAsync(_scriptsService.GetChannelSheetUrl(Context.Channel.Id), ephemeral: true);
         }
 
-        [Command(RunMode = RunMode.Async), Priority(5)]
-        public async Task Search([Remainder]string searchString)
+        [SlashCommand("search", "Search the scripts spreadsheet")]
+        public async Task Search([Summary("term", "Search term (minimum 3 characters)")] string searchString)
         {
             if (searchString.Length < 3)
             {
-                await ReplyAsync("Your search term must be at least three characters long.");
+                await RespondAsync("Your search term must be at least three characters long.", ephemeral: true);
                 return;
             }
 
-            await ReplyAsync(await _scriptsService.SearchSheetAsync(searchString, Context.Guild != null ? Context.Guild.Id : 0));
+            await DeferAsync();
+            await FollowupAsync(await _scriptsService.SearchSheetAsync(searchString, Context.Guild?.Id ?? 0));
         }
     }
 }

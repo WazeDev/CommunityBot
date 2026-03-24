@@ -17,7 +17,7 @@ namespace WazeBotDiscord.ChannelSync
             if (msg.Author.Id == client.CurrentUser.Id) //don't sync bot messages
                 return;
 
-            var channels = service.getSyncChannels(msg.Channel.Id);
+            var channels = await service.getSyncChannels(msg.Channel.Id);
             if (channels != null) {
                 ulong channelToSyncTo = channels.Channel1;
 

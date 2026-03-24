@@ -1,14 +1,11 @@
-﻿using Discord.Commands;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Discord.Interactions;
 using System.Threading.Tasks;
-using WazeBotDiscord.Utilities;
 using WazeBotDiscord.BotManagement;
+using WazeBotDiscord.Utilities;
 
 namespace WazeBotDiscord.Modules
 {
-    public class BotManagementModule : ModuleBase
+    public class BotManagementModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly BotManagementService _botmanagementSvc;
 
@@ -17,34 +14,31 @@ namespace WazeBotDiscord.Modules
             _botmanagementSvc = botmanagementSvc;
         }
 
-        [Command("restartbot")]
+        [SlashCommand("restartbot", "Trigger a bot restart")]
         [RequireChampInNationalGuild]
         public async Task RestartBot()
         {
-            await ReplyAsync("Bot restart triggered");
+            await DeferAsync(ephemeral: true);
             var success = await _botmanagementSvc.ExecuteBotService("restart");
-            if (!success)
-                await ReplyAsync("Bot restart failed");
+            await FollowupAsync(success ? "Bot restart triggered." : "Bot restart failed.", ephemeral: true);
         }
 
-        [Command("updatebot")]
+        [SlashCommand("updatebot", "Trigger a bot update")]
         [RequireChampInNationalGuild]
         public async Task UpdateBot()
         {
-            await ReplyAsync("Bot update triggered");
+            await DeferAsync(ephemeral: true);
             var success = await _botmanagementSvc.ExecuteBotService("update");
-            if (!success)
-                await ReplyAsync("Bot update failed");
+            await FollowupAsync(success ? "Bot update triggered." : "Bot update failed.", ephemeral: true);
         }
 
-        [Command("stopbot")]
+        [SlashCommand("stopbot", "Trigger a bot stop")]
         [RequireAppOwner]
         public async Task StopBot()
         {
-            await ReplyAsync("Bot stop triggered");
+            await DeferAsync(ephemeral: true);
             var success = await _botmanagementSvc.ExecuteBotService("stop");
-            if (!success)
-                await ReplyAsync("Bot stop failed");
+            await FollowupAsync(success ? "Bot stop triggered." : "Bot stop failed.", ephemeral: true);
         }
     }
 }

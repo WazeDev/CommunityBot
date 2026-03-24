@@ -1,25 +1,33 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace WazeBotDiscord.ServerLeave
 {
     public class ServerLeaveService
     {
-        readonly HttpClient _client;
-        List<LeaveMessageChannel> _leaveChannels;
+        List<LeaveMessageChannel> _leaveChannels; readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        bool _initialized = false;
 
-        public ServerLeaveService(HttpClient client)
+        private async Task EnsureInitializedAsync()
         {
-            _client = client;
-        }
+            if (_initialized) return;
 
-        public async Task InitServerLeaveServiceAsync()
-        {
-            using (var db = new WbContext())
+            await _initLock.WaitAsync();
+            try
             {
-                _leaveChannels = await db.LeaveMessageChannels.ToListAsync();
+                if (_initialized) return; // double check after acquiring lock
+                using (var db = new WbContext())
+                {
+                    _leaveChannels = await db.LeaveMessageChannels.ToListAsync();
+                }
+                _initialized = true;
+            }
+            finally
+            {
+                _initLock.Release();
             }
         }
 
@@ -31,7 +39,8 @@ namespace WazeBotDiscord.ServerLeave
         /// <returns>Returns true if it is a new add, false if there was an entry and we are modifying</returns>
         public async Task<bool> AddChannelIDAsync(ulong guildID, ulong channelID)
         {
-            var existing = GetExistingLeaveChannel(guildID);
+            await EnsureInitializedAsync();
+            var existing = await GetExistingLeaveChannel(guildID);
             if (existing == null)
             {
                 var dbSheet = new LeaveMessageChannel
@@ -69,7 +78,8 @@ namespace WazeBotDiscord.ServerLeave
         /// <returns>True if the channel was removed, false if there was no channel set</returns>
         public async Task<bool> RemoveServerChannelAsync(ulong guildID)
         {
-            var existing = GetExistingLeaveChannel(guildID);
+            await EnsureInitializedAsync();
+            var existing = await GetExistingLeaveChannel(guildID);
             if (existing == null)
                 return false;
 
@@ -84,8 +94,9 @@ namespace WazeBotDiscord.ServerLeave
             return true;
         }
 
-        public LeaveMessageChannel GetExistingLeaveChannel(ulong guildId)
+        public async Task<LeaveMessageChannel> GetExistingLeaveChannel(ulong guildId)
         {
+            await EnsureInitializedAsync();
             return _leaveChannels.Find(r => r.GuildId == guildId);
         }
     }

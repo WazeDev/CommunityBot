@@ -1,15 +1,13 @@
-﻿using Discord.Commands;
+﻿using Discord.Interactions;
 using System.Threading.Tasks;
-using System;
 using WazeBotDiscord.ServerJoin;
 using WazeBotDiscord.Utilities;
-using Discord.WebSocket;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("serverjoin")]
+    [Group("serverjoin", "Server join message commands")]
     [RequireChampInUSAdminInGlobalScriptsAttribute]
-    public class ServerJoinModule : ModuleBase
+    public class ServerJoinModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly ServerJoinService _serverJoinSvc;
 
@@ -18,46 +16,30 @@ namespace WazeBotDiscord.Modules
             _serverJoinSvc = serverJoinSvc;
         }
 
-        [Command]
+        [SlashCommand("get", "Get the join message for this server")]
         public async Task GetMessage()
         {
-            var message = _serverJoinSvc.GetExistingJoinMessage(Context.Guild.Id);
-
+            var message = await _serverJoinSvc.GetExistingJoinMessage(Context.Guild.Id);
             if (message == null)
-                await ReplyAsync("No join message has been set for this server.");
-
-            await ReplyAsync(message.JoinMessage);
+                await RespondAsync("No join message has been set for this server.", ephemeral: true);
+            else
+                await RespondAsync(message.JoinMessage, ephemeral: true);
         }
 
-        [Command("add")]
-        public async Task Add([Remainder]string message)
+        [SlashCommand("add", "Add or update the join message for this server")]
+        public async Task Add([Summary("message", "The join message to display")] string message)
         {
-            if (message == null)
-            {
-                await ReplyAsync($"{Context.Message.Author.Mention}: You must specify a message to display.");
-                return;
-            }
-
             var result = await _serverJoinSvc.AddServerMessage(Context.Guild.Id, message);
-
-            var reply = $"{Context.Message.Author.Mention}: server join message added.";
-            if (result == false)
-                reply = $"{Context.Message.Author.Mention}: server join message modified.";
-
-            await ReplyAsync(reply);
-
+            await RespondAsync(result ? "Server join message added." : "Server join message modified.", ephemeral: true);
         }
 
-        [Command("remove")]
+        [SlashCommand("remove", "Remove the join message for this server")]
         public async Task Remove()
         {
             var removed = await _serverJoinSvc.RemoveServerMessage(Context.Guild.Id);
-
-            if (removed)
-                await ReplyAsync($"Removed server join message from {Context.Guild.Name}");
-            else
-                await ReplyAsync("No server join message was set for this server.");
+            await RespondAsync(removed
+                ? $"Removed server join message from {Context.Guild.Name}."
+                : "No server join message was set for this server.", ephemeral: true);
         }
     }
-
 }

@@ -1,5 +1,7 @@
 ﻿using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
+using Google.Apis.Services;
+using Google.Apis.Sheets.v4;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -7,6 +9,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace WazeBotDiscord.Lookup
@@ -15,23 +18,47 @@ namespace WazeBotDiscord.Lookup
     {
         readonly HttpClient _client;
         List<SheetToSearch> _sheets;
+        readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        bool _initialized = false;
+        readonly SheetsService _sheetsService;
 
-        public LookupService(HttpClient client)
+        private async Task EnsureInitializedAsync()
         {
-            _client = client;
-        }
+            if (_initialized) return;
 
-        public async Task InitAsync()
-        {
-            using (var db = new WbContext())
+            await _initLock.WaitAsync();
+            try
             {
-                //_sheets = await db.SheetsToSearch.ToListAsync();
-                _sheets = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(db.SheetsToSearch);
+                if (_initialized) return; // double check after acquiring lock
+                using (var db = new WbContext())
+                {
+                    _sheets = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(db.SheetsToSearch);
+                }
+                _initialized = true;
+            }
+            finally
+            {
+                _initLock.Release();
             }
         }
 
-        public string GetChannelSheetUrl(ulong channelId)
+        public async Task WarmupAsync()
         {
+            await EnsureInitializedAsync();
+        }
+
+        public LookupService()
+        {
+            _sheetsService = new SheetsService(new BaseClientService.Initializer
+            {
+                ApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY"),
+                ApplicationName = "WazeBotDiscord"
+            });
+        }
+
+        public async Task<string> GetChannelSheetUrl(ulong channelId)
+        {
+            await EnsureInitializedAsync();
             var sheet = _sheets.Find(s => s.ChannelId == channelId);
             if (sheet == null)
                 return "This channel is not configured to search a spreadsheet.";
@@ -39,63 +66,129 @@ namespace WazeBotDiscord.Lookup
             return $"<https://docs.google.com/spreadsheets/d/{sheet.SheetId}/edit>";
         }
 
+        //public async Task<string> SearchSheetAsync(ulong channelId, string origSearchString)
+        //{
+        //    await EnsureInitializedAsync();
+        //    var searchString = origSearchString.ToLowerInvariant();
+
+        //    var sheet = _sheets.Find(s => s.ChannelId == channelId);
+        //    if (sheet == null)
+        //        return "This channel is not configured to search a spreadsheet.";
+
+        //    var parser = new HtmlParser();
+        //    string sheetURL;
+        //    if (sheet.GId != "") //gid has been specified
+        //        sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml?gid={sheet.GId}&single=true";
+        //    else
+        //        sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml";
+        //    var resp = await _client.GetAsync(sheetURL);
+
+        //    if (!resp.IsSuccessStatusCode)
+        //        return "Spreadsheet is not configured correctly.";
+
+        //    var doc = await parser.ParseDocumentAsync(await resp.Content.ReadAsStringAsync());
+
+        //    var tblHeader = doc.QuerySelectorAll("table.waffle > tbody > tr:first-of-type");
+        //    var headerRowRaw = tblHeader.FirstOrDefault();
+        //    if (headerRowRaw == null)
+        //        return "Spreadsheet is not configured correctly.";
+
+        //    var headerRow = (IHtmlTableRowElement)headerRowRaw;
+        //    var headerFields = headerRow.Cells
+        //        .Where(c => !string.IsNullOrWhiteSpace(c.TextContent))
+        //        .Select(c => c.TextContent)
+        //        .ToList();
+
+        //    var contentRows = doc.QuerySelectorAll("table.waffle > tbody > tr:not(:first-of-type)");
+        //    var matches = new List<List<string>>();
+
+        //    foreach (var thisRow in contentRows)
+        //    {
+        //        var row = (IHtmlTableRowElement)thisRow;
+        //        var match = false;
+
+        //        foreach (var cell in row.Cells)
+        //        {
+        //            if (cell.TextContent.ToLowerInvariant().Contains(searchString))
+        //            {
+        //                match = true;
+        //                break;
+        //            }
+        //        }
+
+        //        if (match)
+        //            matches.Add(row.Cells.Select(c => c.TextContent).ToList());
+        //    }
+
+        //    return GenerateResult(headerFields, matches, origSearchString);
+        //}
+
+
         public async Task<string> SearchSheetAsync(ulong channelId, string origSearchString)
         {
+            await EnsureInitializedAsync();
             var searchString = origSearchString.ToLowerInvariant();
 
             var sheet = _sheets.Find(s => s.ChannelId == channelId);
             if (sheet == null)
                 return "This channel is not configured to search a spreadsheet.";
 
-            var parser = new HtmlParser();
-            string sheetURL;
-            if (sheet.GId != "") //gid has been specified
-                sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml/sheet?gid={sheet.GId}&single=true";
-            else
-                sheetURL = $"https://docs.google.com/spreadsheets/d/{sheet.SheetId}/pubhtml/sheet?gid=0";
-            var resp = await _client.GetAsync(sheetURL);
-
-            if (!resp.IsSuccessStatusCode)
-                return "Spreadsheet is not configured correctly.";
-
-            var doc = await parser.ParseDocumentAsync(await resp.Content.ReadAsStringAsync());
-
-            var tblHeader = doc.QuerySelectorAll("table.waffle > tbody > tr:first-of-type");
-            var headerRowRaw = tblHeader.FirstOrDefault();
-            if (headerRowRaw == null)
-                return "Spreadsheet is not configured correctly.";
-
-            var headerRow = (IHtmlTableRowElement)headerRowRaw;
-            var headerFields = headerRow.Cells
-                .Where(c => !string.IsNullOrWhiteSpace(c.TextContent))
-                .Select(c => c.TextContent)
-                .ToList();
-
-            var contentRows = doc.QuerySelectorAll("table.waffle > tbody > tr:not(:first-of-type)");
-            var matches = new List<List<string>>();
-
-            foreach (var thisRow in contentRows)
+            try
             {
-                var row = (IHtmlTableRowElement)thisRow;
-                var match = false;
+                string range;
+                var sheetId = ExtractSheetId(sheet.SheetId);
 
-                foreach (var cell in row.Cells)
+                if (!string.IsNullOrEmpty(sheet.GId))
                 {
-                    if (cell.TextContent.ToLowerInvariant().Contains(searchString))
-                    {
-                        match = true;
-                        break;
-                    }
+                    var tabName = await GetSheetNameFromGidAsync(sheetId, sheet.GId);
+                    range = $"'{tabName}'!A:Z";
                 }
+                else
+                    range = "A:Z";
 
-                if (match)
-                    matches.Add(row.Cells.Select(c => c.TextContent).ToList());
+                var request = _sheetsService.Spreadsheets.Values.Get(sheetId, range);
+                var response = await request.ExecuteAsync();
+                var rows = response.Values;
+
+                if (rows == null || rows.Count == 0)
+                    return "Spreadsheet is not configured correctly.";
+
+                var headers = rows[0].Select(h => h.ToString()).ToList();
+                var matches = rows.Skip(1)
+                    .Where(row => row.Any(cell => cell.ToString().ToLowerInvariant().Contains(searchString)))
+                    .ToList();
+
+                return GenerateResult(headers, matches, origSearchString);
             }
-
-            return GenerateResult(headerFields, matches, origSearchString);
+            catch (Exception ex)
+            {
+                return $"Error accessing spreadsheet. Make sure the sheet is shared with 'Anyone with the link can view'. ({ex.Message})";
+            }
         }
 
-        string GenerateResult(List<string> headers, List<List<string>> matches, string searchString)
+        string ExtractSheetId(string sheetIdOrUrl)
+        {
+            // If it's already just an ID (no slashes) return as-is
+            if (!sheetIdOrUrl.Contains("/"))
+                return sheetIdOrUrl;
+
+            // Extract ID from URL: /spreadsheets/d/ID/...
+            var match = Regex.Match(sheetIdOrUrl, @"/spreadsheets/d/([a-zA-Z0-9-_]+)");
+            return match.Success ? match.Groups[1].Value : sheetIdOrUrl;
+        }
+
+        async Task<string> GetSheetNameFromGidAsync(string sheetId, string gid)
+        {
+            var request = _sheetsService.Spreadsheets.Get(sheetId);
+            var response = await request.ExecuteAsync();
+
+            var sheet = response.Sheets
+                .FirstOrDefault(s => s.Properties.SheetId == int.Parse(gid));
+
+            return sheet?.Properties.Title;
+        }
+
+        string GenerateResult(List<string> headers, List<IList<object>> matches, string searchString)
         {
             var result = new StringBuilder();
 
@@ -118,7 +211,7 @@ namespace WazeBotDiscord.Lookup
 
                 for (var j = 0; j < matches[i].Count; j++)
                 {
-                    if (string.IsNullOrWhiteSpace(matches[i][j]))
+                    if (string.IsNullOrWhiteSpace(matches[i][j].ToString()))
                         continue;
 
                     result.Append(matches[i][j]);
@@ -150,7 +243,8 @@ namespace WazeBotDiscord.Lookup
         /// <returns>Returns true if it is a new add, false if there was an entry and we are modifying</returns>
         public async Task<bool> AddSheetIDAsync(ulong guildID, ulong channelID, string sheetID, string gid = "")
         {
-            var existing = GetExistingLookupSheet(channelID, guildID);
+            await EnsureInitializedAsync();
+            var existing = await GetExistingLookupSheet(channelID, guildID);
             if (existing == null) { 
                 var dbSheet = new SheetToSearch
                 {
@@ -186,7 +280,8 @@ namespace WazeBotDiscord.Lookup
 
         public async Task<bool> RemoveSheetIDAsync(ulong guildID, ulong channelID)
         {
-            var existing = GetExistingLookupSheet(channelID, guildID);
+            await EnsureInitializedAsync();
+            var existing = await GetExistingLookupSheet(channelID, guildID);
             if (existing == null)
                 return false;
 
@@ -201,16 +296,25 @@ namespace WazeBotDiscord.Lookup
             return true;
         }
 
-        public SheetToSearch GetExistingLookupSheet(ulong channelId, ulong guildId)
+        public async Task<SheetToSearch> GetExistingLookupSheet(ulong channelId, ulong guildId)
         {
+            await EnsureInitializedAsync();
             return _sheets.Find(r => r.ChannelId == channelId && r.GuildId == guildId);
         }
 
         public async Task ReloadSheetsAsync()
         {
-            _sheets.Clear();
-
-            await InitAsync();
+            await _initLock.WaitAsync();
+            try
+            {
+                _initialized = false;
+                _sheets.Clear();
+            }
+            finally
+            {
+                _initLock.Release();
+            }
+            await EnsureInitializedAsync();
         }
     }
 }

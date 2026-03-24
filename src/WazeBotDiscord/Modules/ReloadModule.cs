@@ -1,23 +1,21 @@
-﻿using Discord.Commands;
+﻿using Discord.Interactions;
 using System.Threading.Tasks;
-using WazeBotDiscord.Lookup;
-using WazeBotDiscord.Twitter;
-using WazeBotDiscord.Scripts;
-using WazeBotDiscord.ServerJoin;
 using WazeBotDiscord.Autoreplies;
-using WazeBotDiscord.Outreach;
-using WazeBotDiscord.Utilities;
+using WazeBotDiscord.ChannelSync;
 using WazeBotDiscord.Glossary;
 using WazeBotDiscord.Keywords;
-using WazeBotDiscord.ChannelSync;
+using WazeBotDiscord.Lookup;
+using WazeBotDiscord.Outreach;
+using WazeBotDiscord.Scripts;
+using WazeBotDiscord.ServerJoin;
+using WazeBotDiscord.Utilities;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("reload")]
+    [Group("reload", "Reload bot data from the database")]
     [RequireChampInUSAdminInGlobalScripts]
-    public class ReloadModule : ModuleBase
+    public class ReloadModule : InteractionModuleBase<SocketInteractionContext>
     {
-        readonly TwitterService _twitterSvc;
         readonly LookupService _lookupSvc;
         readonly ScriptsService _scriptsSvc;
         readonly ServerJoinService _serverJoinSvc;
@@ -27,10 +25,10 @@ namespace WazeBotDiscord.Modules
         readonly KeywordService _keywordSvc;
         readonly ChannelSyncService _channelSyncSvc;
 
-        public ReloadModule(TwitterService twitterSvc, LookupService lookupSvc, ScriptsService scriptsSvc, ServerJoinService serverJoinSvc, AutoreplyService autoreplySvc, OutreachService outreachSvc,
-            GlossaryService glossarySvc, KeywordService keywordSvc, ChannelSyncService channelsyncSvc)
+        public ReloadModule(LookupService lookupSvc, ScriptsService scriptsSvc, ServerJoinService serverJoinSvc,
+            AutoreplyService autoreplySvc, OutreachService outreachSvc, GlossaryService glossarySvc,
+            KeywordService keywordSvc, ChannelSyncService channelSyncSvc)
         {
-            _twitterSvc = twitterSvc;
             _lookupSvc = lookupSvc;
             _scriptsSvc = scriptsSvc;
             _serverJoinSvc = serverJoinSvc;
@@ -38,71 +36,69 @@ namespace WazeBotDiscord.Modules
             _outreachSvc = outreachSvc;
             _glossarySvc = glossarySvc;
             _keywordSvc = keywordSvc;
-            _channelSyncSvc = channelsyncSvc;
+            _channelSyncSvc = channelSyncSvc;
         }
 
-        [Command()]
+        [SlashCommand("list", "List available modules to reload")]
         public async Task AvailableModules()
         {
-            await ReplyAsync("Modules available to reload: twitter, lookup, outreach, serverjoin, autoreplies, glossary, keywords");
+            await RespondAsync("Modules available to reload: lookup, outreach, serverjoin, autoreplies, glossary, keywords, channelsync", ephemeral: true);
         }
 
-        [Command("twitter")]
-        public async Task ReloadTwitter()
-        {
-            _twitterSvc.StopAllStreams();
-            await _twitterSvc.InitTwitterServiceAsync();
-
-            await ReplyAsync("Twitter reloaded.");
-        }
-
-        [Command("lookup")]
+        [SlashCommand("lookup", "Reload lookup sheets")]
         public async Task ReloadLookup()
         {
+            await DeferAsync(ephemeral: true);
             await _lookupSvc.ReloadSheetsAsync();
-            await ReplyAsync("Lookup reloaded.");
+            await FollowupAsync("Lookup reloaded.");
         }
 
-        [Command("outreach")]
+        [SlashCommand("outreach", "Reload outreach sheets")]
         public async Task ReloadOutreach()
         {
+            await DeferAsync(ephemeral: true);
             await _outreachSvc.ReloadOutreachAsync();
-            await ReplyAsync("Outreach reloaded.");
+            await FollowupAsync("Outreach reloaded.");
         }
 
-        [Command("serverjoin")]
+        [SlashCommand("serverjoin", "Reload server join messages")]
         public async Task ReloadServerJoin()
         {
+            await DeferAsync(ephemeral: true);
             await _serverJoinSvc.ReloadServerjoinAsync();
-            await ReplyAsync("Serverjoin reloaded.");
+            await FollowupAsync("Serverjoin reloaded.");
         }
 
-        [Command("autoreplies")]
-        public async Task ReloadAutorepliesJoin()
+        [SlashCommand("autoreplies", "Reload autoreplies")]
+        public async Task ReloadAutoreplies()
         {
+            await DeferAsync(ephemeral: true);
             await _autoreplySvc.ReloadAutorepliesAsync();
-            await ReplyAsync("Autoreplies reloaded.");
+            await FollowupAsync("Autoreplies reloaded.");
         }
 
-        [Command("glossary")]
+        [SlashCommand("glossary", "Reload glossary")]
         public async Task ReloadGlossary()
         {
+            await DeferAsync(ephemeral: true);
             await _glossarySvc.ReloadGlossaryAsync();
-            await ReplyAsync("Glossary reloaded.");
+            await FollowupAsync("Glossary reloaded.");
         }
 
-        [Command("keywords")]
+        [SlashCommand("keywords", "Reload keywords")]
         public async Task ReloadKeywords()
         {
+            await DeferAsync(ephemeral: true);
             await _keywordSvc.ReloadKeywordsAsync();
-            await ReplyAsync("Keywords reloaded.");
+            await FollowupAsync("Keywords reloaded.");
         }
 
-        [Command("channelsync")]
+        [SlashCommand("channelsync", "Reload channel sync records")]
         public async Task ReloadChannelSync()
         {
+            await DeferAsync(ephemeral: true);
             await _channelSyncSvc.ReloadChannelSyncAsync();
-            await ReplyAsync("Channel sync records reloaded.");
+            await FollowupAsync("Channel sync records reloaded.");
         }
     }
 }

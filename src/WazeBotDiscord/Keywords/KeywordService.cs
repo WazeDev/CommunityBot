@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using WazeBotDiscord.DND;
 
@@ -13,62 +14,73 @@ namespace WazeBotDiscord.Keywords
     {
         List<KeywordRecord> _keywords = new List<KeywordRecord>();
         List<UserMutedChannels> _mutedChannels = new List<UserMutedChannels>();
-        List<UserMutedGuilds> _mutedGuilds = new List<UserMutedGuilds>();
+        List<UserMutedGuilds> _mutedGuilds = new List<UserMutedGuilds>(); 
+        readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        bool _initialized = false;
 
         readonly Regex _botMsg = new Regex(@"\*\*.+\*\*: ");
 
-        /// <summary>
-        /// Initializes the keyword service from the database.
-        /// </summary>
-        public async Task InitKeywordServiceAsync()
+        private async Task EnsureInitializedAsync()
         {
-            List<DbKeyword> keywords;
-            List<DbUserMutedChannel> mutedChannels;
-            List<DbUserMutedGuild> mutedGuilds;
+            if (_initialized) return;
 
-            using (var db = new WbContext())
+            await _initLock.WaitAsync();
+            try
             {
-                keywords = await db.Keywords
-                    .Include(k => k.IgnoredChannels)
-                    .Include(k => k.IgnoredGuilds)
-                    .ToListAsync();
+                if (_initialized) return;
 
-                //mutedChannels = await db.MutedChannels.ToListAsync();
-                //mutedGuilds = await db.MutedGuilds.ToListAsync();
-                mutedChannels = await EntityFrameworkQueryableExtensions.ToListAsync(db.MutedChannels);
-                mutedGuilds = await EntityFrameworkQueryableExtensions.ToListAsync(db.MutedGuilds);
-            }
+                List<DbKeyword> keywords;
+                List<DbUserMutedChannel> mutedChannels;
+                List<DbUserMutedGuild> mutedGuilds;
 
-            foreach (var k in keywords)
-            {
-                Regex regexKeyword = null;
-                if (CheckRegexKeyword(k.Keyword))
-                    regexKeyword = CreateRegex(k.Keyword);
-
-                _keywords.Add(new KeywordRecord
+                using (var db = new WbContext())
                 {
-                    Id = k.Id,
-                    UserId = k.UserId,
-                    Keyword = k.Keyword,
-                    RegexKeyword = regexKeyword,
-                    IgnoredChannels = k.IgnoredChannels.Select(c => c.ChannelId).ToList(),
-                    IgnoredGuilds = k.IgnoredGuilds.Select(g => g.GuildId).ToList()
-                });
+                    keywords = await db.Keywords
+                        .Include(k => k.IgnoredChannels)
+                        .Include(k => k.IgnoredGuilds)
+                        .ToListAsync();
+
+                    mutedChannels = await db.MutedChannels.ToListAsync();
+                    mutedGuilds = await db.MutedGuilds.ToListAsync();
+                }
+
+                foreach (var k in keywords)
+                {
+                    Regex regexKeyword = null;
+                    if (CheckRegexKeyword(k.Keyword))
+                        regexKeyword = CreateRegex(k.Keyword);
+
+                    _keywords.Add(new KeywordRecord
+                    {
+                        Id = k.Id,
+                        UserId = k.UserId,
+                        Keyword = k.Keyword,
+                        RegexKeyword = regexKeyword,
+                        IgnoredChannels = k.IgnoredChannels.Select(c => c.ChannelId).ToList(),
+                        IgnoredGuilds = k.IgnoredGuilds.Select(g => g.GuildId).ToList()
+                    });
+                }
+
+                var mcUserIds = mutedChannels.Select(c => c.UserId).Distinct();
+                _mutedChannels = mcUserIds.Select(i => new UserMutedChannels
+                {
+                    UserId = i,
+                    ChannelIds = mutedChannels.Where(c => c.UserId == i).Select(c => c.ChannelId).ToList()
+                }).ToList();
+
+                var mgUserIds = mutedGuilds.Select(g => g.UserId).Distinct();
+                _mutedGuilds = mgUserIds.Select(i => new UserMutedGuilds
+                {
+                    UserId = i,
+                    GuildIds = mutedGuilds.Where(g => g.UserId == i).Select(g => g.GuildId).ToList()
+                }).ToList();
+
+                _initialized = true;
             }
-
-            var mcUserIds = mutedChannels.Select(c => c.UserId).Distinct();
-            _mutedChannels = mcUserIds.Select(i => new UserMutedChannels
+            finally
             {
-                UserId = i,
-                ChannelIds = mutedChannels.Where(c => c.UserId == i).Select(c => c.ChannelId).ToList()
-            }).ToList();
-
-            var mgUserIds = mutedGuilds.Select(g => g.UserId).Distinct();
-            _mutedGuilds = mgUserIds.Select(i => new UserMutedGuilds
-            {
-                UserId = i,
-                GuildIds = mutedGuilds.Where(g => g.UserId == i).Select(g => g.GuildId).ToList()
-            }).ToList();
+                _initLock.Release();
+            }
         }
 
         /// <summary>
@@ -78,8 +90,9 @@ namespace WazeBotDiscord.Keywords
         /// <param name="guildId">ID of the guild the message was sent in</param>
         /// <param name="channelId">ID of the channel the message was sent in</param>
         /// <returns>List of matches</returns>
-        public List<KeywordMatch> CheckForKeyword(string msg, ulong AuthorID, ulong guildId, ulong channelId)
+        public async Task<List<KeywordMatch>> CheckForKeywordAsync(string msg, ulong AuthorID, ulong guildId, ulong channelId)
         {
+            await EnsureInitializedAsync();
             var message = msg.ToLowerInvariant();
             var matches = new List<KeywordMatch>();
 
@@ -125,25 +138,24 @@ namespace WazeBotDiscord.Keywords
         /// </summary>
         /// <param name="userId">User ID to get keywords for</param>
         /// <returns>List of KeywordRecords</returns>
-        public List<KeywordRecord> GetKeywordsForUser(ulong userId)
+        public async Task<List<KeywordRecord>> GetKeywordsForUserAsync(ulong userId)
         {
+            await EnsureInitializedAsync();
             return _keywords.Where(k => k.UserId == userId).ToList();
         }
 
-        public UserMutedChannels GetMutedChannelsForUser(ulong userId)
+        public async Task<UserMutedChannels> GetMutedChannelsForUserAsync(ulong userId)
         {
+            await EnsureInitializedAsync();
             var mutedList = _mutedChannels.Where(k => k.UserId == userId).ToList();
-            if (mutedList.Count == 1) //only return the requested user's muted object
-                return mutedList[0];
-            return null;
+            return mutedList.Count == 1 ? mutedList[0] : null;
         }
 
-        public UserMutedGuilds GetMutedGuildsForUser(ulong userId)
+        public async Task<UserMutedGuilds> GetMutedGuildsForUserAsync(ulong userId)
         {
+            await EnsureInitializedAsync();
             var mutedList = _mutedGuilds.Where(k => k.UserId == userId).ToList();
-            if (mutedList.Count == 1) //only return the requested user's muted object
-                return mutedList[0];
-            return null;
+            return mutedList.Count == 1 ? mutedList[0] : null;
         }
 
         /// <summary>
@@ -154,6 +166,7 @@ namespace WazeBotDiscord.Keywords
         /// <returns>Tuple of the keyword and whether user was already subscribed</returns>
         public async Task<(KeywordRecord Keyword, bool AlreadyExisted)> AddKeywordAsync(ulong userId, string keyword)
         {
+            await EnsureInitializedAsync();
             if (!CheckRegexKeyword(keyword))
                 keyword = keyword.ToLowerInvariant();
 
@@ -192,6 +205,7 @@ namespace WazeBotDiscord.Keywords
         /// <returns>true if the keyword existed and was removed, or false if the user was not subscribed</returns>
         public async Task<bool> RemoveKeywordAsync(ulong userId, string keyword)
         {
+            await EnsureInitializedAsync();
             if (!keyword.StartsWith("/") && !(keyword.EndsWith("/") || keyword.EndsWith("/i")))
                 keyword = keyword.ToLowerInvariant();
 
@@ -225,6 +239,7 @@ namespace WazeBotDiscord.Keywords
         /// it is already being ignored</returns>
         public async Task<IgnoreResult> IgnoreChannelsAsync(ulong userId, string keyword, params ulong[] channelIds)
         {
+            await EnsureInitializedAsync();
             if (!CheckRegexKeyword(keyword))
                 keyword = keyword.ToLowerInvariant();
 
@@ -270,6 +285,7 @@ namespace WazeBotDiscord.Keywords
         /// it is already being ignored</returns>
         public async Task<IgnoreResult> IgnoreGuildsAsync(ulong userId, string keyword, params ulong[] guildIds)
         {
+            await EnsureInitializedAsync();
             if (!CheckRegexKeyword(keyword))
                 keyword = keyword.ToLowerInvariant();
 
@@ -314,6 +330,7 @@ namespace WazeBotDiscord.Keywords
         /// <returns>True if success, false if the user isn't subscribed to the provided keyword</returns>
         public async Task<UnignoreResult> UnignoreChannelsAsync(ulong userId, string keyword, params ulong[] channelIds)
         {
+            await EnsureInitializedAsync();
             if (CheckRegexKeyword(keyword))
                 keyword = keyword.ToLowerInvariant();
 
@@ -353,6 +370,7 @@ namespace WazeBotDiscord.Keywords
         /// <returns>True if success, false if the user isn't subscribed to the provided keyword</returns>
         public async Task<UnignoreResult> UnignoreGuildsAsync(ulong userId, string keyword, params ulong[] guildIds)
         {
+            await EnsureInitializedAsync();
             if (CheckRegexKeyword(keyword))
                 keyword = keyword.ToLowerInvariant();
 
@@ -390,6 +408,7 @@ namespace WazeBotDiscord.Keywords
         /// <param name="channelId">Channel's ID</param>
         public async Task MuteChannelAsync(ulong userId, ulong channelId)
         {
+            await EnsureInitializedAsync();
             var userRecord = _mutedChannels.Find(c => c.UserId == userId);
             if (userRecord?.ChannelIds.Contains(channelId) == true)
                 return;
@@ -423,6 +442,7 @@ namespace WazeBotDiscord.Keywords
         /// <param name="guildId">Guild's ID</param>
         public async Task MuteGuildAsync(ulong userId, ulong guildId)
         {
+            await EnsureInitializedAsync();
             var userRecord = _mutedGuilds.Find(c => c.UserId == userId);
             if (userRecord?.GuildIds.Contains(guildId) == true)
                 return;
@@ -457,6 +477,7 @@ namespace WazeBotDiscord.Keywords
         /// <returns></returns>
         public async Task UnmuteChannelAsync(ulong userId, ulong channelId)
         {
+            await EnsureInitializedAsync();
             var userRecord = _mutedChannels.Find(c => c.UserId == userId);
             if (userRecord == null || !userRecord.ChannelIds.Contains(channelId))
                 return;
@@ -483,6 +504,7 @@ namespace WazeBotDiscord.Keywords
         /// <returns></returns>
         public async Task UnmuteGuildAsync(ulong userId, ulong guildId)
         {
+            await EnsureInitializedAsync();
             var userRecord = _mutedGuilds.Find(c => c.UserId == userId);
             if (userRecord == null || !userRecord.GuildIds.Contains(guildId))
                 return;
@@ -534,10 +556,19 @@ namespace WazeBotDiscord.Keywords
 
         public async Task ReloadKeywordsAsync()
         {
-            _keywords.Clear();
-            _mutedChannels.Clear();
-            _mutedGuilds.Clear();
-            await InitKeywordServiceAsync();
+            await _initLock.WaitAsync();
+            try
+            {
+                _initialized = false;
+                _keywords.Clear();
+                _mutedChannels.Clear();
+                _mutedGuilds.Clear();
+            }
+            finally
+            {
+                _initLock.Release();
+            }
+            await EnsureInitializedAsync();
         }
     }
 

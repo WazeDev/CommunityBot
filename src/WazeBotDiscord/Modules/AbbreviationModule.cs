@@ -1,13 +1,12 @@
 ﻿using Discord;
-using Discord.Commands;
+using Discord.Interactions;
 using System.Threading.Tasks;
 using WazeBotDiscord.Abbreviation;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("abbr")]
-    [Alias("abbreviation")]
-    public class AbbreviationModule : ModuleBase
+    [Group("abbr", "Waze abbreviation lookup commands")]
+    public class AbbreviationModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly AbbreviationService _abbreviationSvc;
 
@@ -16,22 +15,23 @@ namespace WazeBotDiscord.Modules
             _abbreviationSvc = lookupSvc;
         }
 
-        [Command]
+        [SlashCommand("url", "Get the link to the Waze abbreviations page")]
         public async Task GetUrl()
         {
-            await ReplyAsync("<https://www.waze.com/discuss/t/abbreviations-and-acronyms/377720>");
+            await RespondAsync("<https://wazeopedia.waze.com/wiki/USA/Abbreviations_and_acronyms>");
         }
 
-        [Command(RunMode = RunMode.Async), Priority(5)]
-        public async Task Search([Remainder]string searchString)
+        [SlashCommand("search", "Search for a Waze abbreviation")]
+        public async Task Search([Summary("term", "Search term (minimum 3 characters)")] string searchString)
         {
             if (searchString.Length < 3)
             {
-                await ReplyAsync("Your search term must be at least three characters long.");
+                await RespondAsync("Your search term must be at least three characters long.");
                 return;
             }
+            await DeferAsync();
             var response = await _abbreviationSvc.SearchSheetAsync(Context.Channel.Id, searchString);
-            await ReplyAsync(response.message, embed: response.results);
+            await FollowupAsync(response.message, embed: response.results);
         }
     }
 }

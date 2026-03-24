@@ -5,7 +5,6 @@ using System;
 using WazeBotDiscord.Autoreplies;
 using WazeBotDiscord.Keywords;
 using WazeBotDiscord.Lookup;
-using WazeBotDiscord.Twitter;
 using WazeBotDiscord.Outreach;
 using WazeBotDiscord.ServerLeave;
 using WazeBotDiscord.DND;
@@ -18,7 +17,6 @@ namespace WazeBotDiscord
     public class WbContext : DbContext
     {
         public DbSet<Autoreply> Autoreplies { get; set; }
-        public DbSet<TwitterToCheck> TwittersToCheck { get; set; }
         public DbSet<SheetToSearch> SheetsToSearch { get; set; }
         public DbSet<DbKeyword> Keywords { get; set; }
         public DbSet<DbUserMutedChannel> MutedChannels { get; set; }
@@ -32,7 +30,8 @@ namespace WazeBotDiscord
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseMySql(Environment.GetEnvironmentVariable("WAZEBOT_DB_CONNECTIONSTRING"));
+            var connectionString = Environment.GetEnvironmentVariable("WAZEBOT_DB_CONNECTIONSTRING");
+            optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -59,21 +58,7 @@ namespace WazeBotDiscord
                 e.Property(r => r.JoinMessage).HasColumnName("message").IsRequired().HasMaxLength(2000);
             });
 
-            modelBuilder.Entity<TwitterToCheck>(e =>
-            {
-                e.ToTable("twitter_to_check");
-                e.HasKey(t => t.Id);
-
-                e.Ignore(r => r.RequiredKeywords);
-                e.Property(r => r.RequiredKeywordsValue).HasColumnName("required_keywords").HasMaxLength(150);
-
-                e.Property(t => t.UserId).HasColumnName("user_id").IsRequired();
-                e.Property(t => t.FriendlyUsername).HasColumnName("friendly_username").IsRequired().HasMaxLength(45);
-                e.Property(t => t.DiscordGuildId).HasColumnName("discord_guild_id").IsRequired();
-                e.Property(t => t.DiscordChannelId).HasColumnName("discord_channel_id").IsRequired();
-            });
-
-            modelBuilder.Entity<LeaveMessageChannel>(e =>
+           modelBuilder.Entity<LeaveMessageChannel>(e =>
             {
                 e.ToTable("leave_message_channels");
                 e.HasKey(r => r.GuildId);

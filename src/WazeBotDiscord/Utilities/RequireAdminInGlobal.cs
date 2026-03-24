@@ -1,4 +1,5 @@
-﻿using Discord.Commands;
+﻿using Discord;
+using Discord.Interactions;
 using Discord.WebSocket;
 using System;
 using System.Linq;
@@ -9,8 +10,8 @@ namespace WazeBotDiscord.Utilities
 {
     class RequireAdminInGlobal : PreconditionAttribute
     {
-        public async override Task<PreconditionResult> CheckPermissionsAsync(
-            ICommandContext context, CommandInfo command, IServiceProvider services)
+        public async override Task<PreconditionResult> CheckRequirementsAsync(
+             IInteractionContext context, ICommandInfo command, IServiceProvider services)
         {
             var appInfo = await context.Client.GetApplicationInfoAsync();
             if (appInfo.Owner.Id == context.User.Id)
@@ -20,10 +21,10 @@ namespace WazeBotDiscord.Utilities
                 return PreconditionResult.FromError("That command can only be used on the global server.");
 
             //Global server and Admin
-            if ((context.Guild.Id == 347386780074377217 && ((SocketGuildUser)context.Message.Author).Roles.Any(r => (r.Id == Admin.Ids[347386780074377217]))))
+            if ((context.Guild.Id == 347386780074377217 && ((SocketGuildUser)context.User).Roles.Any(r => (r.Id == Admin.Ids[347386780074377217]))))
                 return PreconditionResult.FromSuccess();
 
-            return PreconditionResult.FromError($"{context.Message.Author.Mention}: " + "You must be an admin to use that command.");
+            return PreconditionResult.FromError($"{context.User.Mention}: " + "You must be an admin to use that command.");
         }
     }
 }

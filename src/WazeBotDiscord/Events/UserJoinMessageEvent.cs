@@ -11,11 +11,11 @@ namespace WazeBotDiscord.Events
         {
             var serverLeft = user.Guild;
 
-            var joinMessage = serverJoinService.GetExistingJoinMessage(user.Guild.Id);
+            var joinMessage = await serverJoinService.GetExistingJoinMessage(user.Guild.Id);
 
             if (joinMessage != null)
             {
-                var dm = await client.GetUser(user.Id).GetOrCreateDMChannelAsync();
+                var dm = await (await client.GetUserAsync(user.Id)).CreateDMChannelAsync();
                 await dm.SendMessageAsync(joinMessage.JoinMessage);
             }
         }

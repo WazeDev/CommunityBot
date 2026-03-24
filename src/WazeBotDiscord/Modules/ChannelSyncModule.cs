@@ -1,19 +1,16 @@
-﻿using Discord.WebSocket;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Text.RegularExpressions;
+﻿using Discord;
+using Discord.Interactions;
+using Discord.WebSocket;
 using System;
+using System.Threading.Tasks;
 using WazeBotDiscord.ChannelSync;
-using Discord.Commands;
 using WazeBotDiscord.Utilities;
 
 namespace WazeBotDiscord.Modules
 {
-
-    [Group("channelsync")]
+    [Group("channelsync", "Channel sync commands")]
     [RequireAppOwner]
-    public class ChannelSyncModule : ModuleBase
+    public class ChannelSyncModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly ChannelSyncService _channelSyncSvc;
 
@@ -22,68 +19,51 @@ namespace WazeBotDiscord.Modules
             _channelSyncSvc = channelSyncSvc;
         }
 
-        [Command("add"), Priority(10)]
-        public async Task Add(string channelId1, string channelId2)
+        [SlashCommand("add", "Sync two channels together")]
+        public async Task Add(
+            [Summary("channel1", "First channel to sync")] IChannel channel1,
+            [Summary("channel2", "Second channel to sync")] IChannel channel2)
         {
-            ulong channelID1;
-            if (channelId1.StartsWith("<#") && channelId1.EndsWith(">"))
-                channelID1 = Convert.ToUInt64(channelId1.TrimStart('<').TrimStart('#').TrimEnd('>'));
-            else
-                channelID1 = Convert.ToUInt64(channelId1);
-
-            ulong channelID2;
-            if (channelId2.StartsWith("<#") && channelId2.EndsWith(">"))
-                channelID2 = Convert.ToUInt64(channelId2.TrimStart('<').TrimStart('#').TrimEnd('>'));
-            else
-                channelID2 = Convert.ToUInt64(channelId2);
-
-            var channels = _channelSyncSvc.getSyncChannels(channelID1);
-            if (channels != null) {
-                await ReplyAsync($"<#{channelID1}>({channelID1}) is already syncing with a channel.  A channel can only sync to one other channel.");
-                return;
-            }
-            channels = _channelSyncSvc.getSyncChannels(channelID2);
-            if (channels != null)
+            if (channel1.Id == channel2.Id)
             {
-                await ReplyAsync($"<#{channelID2}>({channelID2}) is already syncing with a channel.  A channel can only sync to one other channel.");
+                await RespondAsync("You cannot sync a channel to itself.", ephemeral: true);
                 return;
             }
 
-            if (channelId1 == channelId2)
+            var existing1 = _channelSyncSvc.getSyncChannels(channel1.Id);
+            if (existing1 != null)
             {
-                await ReplyAsync("You cannot sync a channel to itself.");
+                await RespondAsync($"<#{channel1.Id}> ({channel1.Id}) is already syncing with a channel. A channel can only sync to one other channel.", ephemeral: true);
                 return;
             }
 
-            var result = await _channelSyncSvc.AddChannelSync(channelID1, channelID2, Context.Message.Author.Id, DateTime.UtcNow, Context.Message.Author.Username);
+            var existing2 = _channelSyncSvc.getSyncChannels(channel2.Id);
+            if (existing2 != null)
+            {
+                await RespondAsync($"<#{channel2.Id}> ({channel2.Id}) is already syncing with a channel. A channel can only sync to one other channel.", ephemeral: true);
+                return;
+            }
+
+            var result = await _channelSyncSvc.AddChannelSync(channel1.Id, channel2.Id, Context.User.Id, DateTime.UtcNow, Context.User.Username);
             if (result)
-            {
-                await ReplyAsync($"<@{Context.Message.Author.Id}> Channels sync'd");
-            }
+                await RespondAsync($"{Context.User.Mention} Channels synced.", ephemeral: true);
         }
 
-        [Command("remove"), Priority(9)]
-        [Alias("delete")]
-        public async Task Remove(string channelId)
+        [SlashCommand("remove", "Remove a channel sync")]
+        public async Task Remove([Summary("channel", "Channel to remove sync for")] IChannel channel)
         {
-            ulong channelID;
-            if (channelId.StartsWith("<#") && channelId.EndsWith(">"))
-                channelID = Convert.ToUInt64(channelId.TrimStart('<').TrimStart('#').TrimEnd('>'));
-            else
-                channelID = Convert.ToUInt64(channelId);
-
-            var channels = _channelSyncSvc.getSyncChannels(channelID);
+            var channels = _channelSyncSvc.getSyncChannels(channel.Id);
             if (channels == null)
             {
-                await ReplyAsync($"Channel {channelID} is not sync'd to any other channels.");
+                await RespondAsync($"Channel <#{channel.Id}> is not synced to any other channels.", ephemeral: true);
                 return;
             }
 
-            var result = await _channelSyncSvc.RemoveChannelSync(channelID);
+            var result = await _channelSyncSvc.RemoveChannelSync(channel.Id);
             if (result)
-                await ReplyAsync($"<@{Context.Message.Author.Id}> sync removed for channel <#{channelID}> ({channelID})");
+                await RespondAsync($"{Context.User.Mention} sync removed for channel <#{channel.Id}> ({channel.Id})", ephemeral: true);
             else
-                await ReplyAsync($"<@{Context.Message.Author.Id}> failed to remove channel sync");
+                await RespondAsync($"{Context.User.Mention} failed to remove channel sync.", ephemeral: true);
         }
     }
 }

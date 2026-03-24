@@ -1,15 +1,14 @@
-﻿using Discord.Commands;
+﻿using Discord.Interactions;
 using System.Threading.Tasks;
 
 namespace WazeBotDiscord.Modules
 {
-    public class WhereAmIModule : ModuleBase
+    public class WhereAmIModule : InteractionModuleBase<SocketInteractionContext>
     {
-        [Command("whereami")]
-        public async Task WhereAmI([Remainder]string unused = null)
+        [SlashCommand("whereami", "Get the current channel and server IDs")]
+        public async Task WhereAmI()
         {
-            await ReplyAsync($"Channel ID: `{Context.Channel.Id.ToString()}`\n" +
-                             $"Server ID: `{Context.Guild.Id.ToString()}`");
+            await RespondAsync($"Channel ID: `{Context.Channel.Id}`\nServer ID: `{Context.Guild.Id}`", ephemeral: true);
         }
     }
 }

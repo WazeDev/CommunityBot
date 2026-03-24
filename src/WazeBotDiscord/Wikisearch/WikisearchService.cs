@@ -1,63 +1,96 @@
-﻿using System;
-using AngleSharp.Html.Dom;
+﻿using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Net.Http;
+using Discord.Interactions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace WazeBotDiscord.Wikisearch
 {
+    public enum DiscussSearchType
+    {
+        [ChoiceDisplay("Topics")]
+        Topics,
+        [ChoiceDisplay("Users")]
+        Users,
+        [ChoiceDisplay("Categories")]
+        Categories
+    }
+
     public class WikisearchService
     {
-        
-        public async Task<List<SearchItem>> SearchWikiAsync(string searchPhrase)
+        readonly HttpClient _client;
+        public WikisearchService(IHttpClientFactory clientFactory)
         {
-            List<SearchItem> _items = new List<SearchItem>();
-            using (var webClient = new System.Net.WebClient())
-            {
-                var json = webClient.DownloadString("https://wazeopedia.waze.com/wiki/USA/api.php?action=opensearch&format=json&search=" + searchPhrase + "&namespace=0&limit=10");
+            _client = clientFactory.CreateClient("WazeBot");
+        }
 
-                var fuzzyresults = JsonConvert.DeserializeObject(json);
-                var fuzzyArray = ((JArray)fuzzyresults).ToArray();
+        public async Task<List<SearchItem>> SearchWikiAsync(string searchPhrase)//, DiscussSearchType searchType = DiscussSearchType.Topics)
+        {
+            string url;
+            //switch (searchType)
+            //{
+            //    case DiscussSearchType.Users:
+            //        url = $"https://www.waze.com/discuss/search.json?q={Uri.EscapeDataString(searchPhrase)}&search_type=users";
+            //        break;
+            //    case DiscussSearchType.Categories:
+            //        url = $"https://www.waze.com/discuss/search.json?q={Uri.EscapeDataString(searchPhrase)}&search_type=categories_tags";
+            //        break;
+            //    default:
+                    url = $"https://www.waze.com/discuss/search.json?q={Uri.EscapeDataString(searchPhrase)}";
+            //        break;
+            //}
 
-                var searchTerm = fuzzyArray[0];
-                var fuzzyMatches = fuzzyArray[1].ToArray();
-                var fuzzyMatchLinks = fuzzyArray[3].ToArray();
+            var json = await _client.GetStringAsync(url);
+            var result = JObject.Parse(json);
 
-                if (fuzzyMatches.Length == 0)
-                {
-                    var parser = new HtmlParser();
-                    HttpClient _client = new HttpClient();
-                    var resp = await _client.GetStringAsync("https://wazeopedia.waze.com/wiki/USA/index.php?title=Special%3ASearch&search=" + searchPhrase);
-                    var doc = await parser.ParseDocumentAsync(resp);
-                    var searchResults = doc.QuerySelectorAll(".mw-search-results li");
-                    if (searchResults.Length > 0)
+            var items = new List<SearchItem>();
+
+            //if (searchType == DiscussSearchType.Users)
+            //{
+            //    var users = result["users"] as JArray;
+            //    if (users != null)
+            //        foreach (var u in users)
+            //            items.Add(new SearchItem
+            //            {
+            //                Title = u["username"]?.ToString(),
+            //                URL = $"https://www.waze.com/discuss/u/{u["username"]}"
+            //            });
+            //}
+            //else if (searchType == DiscussSearchType.Categories)
+            //{
+            //    var categories = result["categories"] as JArray;
+            //    if (categories != null)
+            //        foreach (var c in categories)
+            //            items.Add(new SearchItem
+            //            {
+            //                Title = c["name"]?.ToString(),
+            //                URL = $"https://www.waze.com/discuss/c/{c["slug"]}"
+            //            });
+            //}
+            //else
+            //{
+                var topics = result["topics"] as JArray;
+                if (topics != null)
+                    foreach (var topic in topics)
                     {
-                        foreach (var myRow in searchResults)
-                        {
-                            var row = (IHtmlListItemElement)myRow;
-                            _items.Add(new SearchItem { Title = row.Children[0].Children[0].Attributes["title"].Value, URL = "https://wazeopedia.waze.com" + row.Children[0].Children[0].Attributes["href"].Value });
-                        }
+                        var title = topic["title"]?.ToString();
+                        var slug = topic["slug"]?.ToString();
+                        var id = topic["id"]?.ToString();
+                        if (title != null && slug != null && id != null)
+                            items.Add(new SearchItem
+                            {
+                                Title = title,
+                                URL = $"https://www.waze.com/discuss/t/{slug}/{id}"
+                            });
                     }
-                    else
-                    {
-                        if (doc.ContentType == "text/html") {
-                            _items.Add(new SearchItem { Title = doc.Title.Replace(" - Wazeopedia", ""), URL = "https://wazeopedia.waze.com" + ((IHtmlAnchorElement)doc.QuerySelectorAll("#ca-main a")[0]).Href.Replace(@"about://", "") });
-                        }
-                    }
-                }
-                else
-                {
-                    for (var i=0; i<fuzzyMatches.Length; i++)
-                    {
-                        _items.Add(new SearchItem { Title = fuzzyMatches[i].ToString(), URL = fuzzyMatchLinks[i].ToString() });
-                    }
-                }
-            }
-            return _items;
+            //}
+
+            return items;
         }
     }
 }

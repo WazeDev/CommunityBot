@@ -1,20 +1,35 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 
 namespace WazeBotDiscord.ServerJoin
 {
     public class ServerJoinService
     {
         List<ServerJoinRecord> _serverJoinMessages;
+        readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        bool _initialized = false;
 
-        public async Task InitAsync()
+        private async Task EnsureInitializedAsync()
         {
-            using (var db = new WbContext())
+            if (_initialized) return;
+
+            await _initLock.WaitAsync();
+            try
             {
-                _serverJoinMessages = await db.ServerJoinRecords.ToListAsync();
+                if (_initialized) return; // double check after acquiring lock
+                using (var db = new WbContext())
+                {
+                    _serverJoinMessages = await db.ServerJoinRecords.ToListAsync();
+                }
+                _initialized = true;
+            }
+            finally
+            {
+                _initLock.Release();
             }
         }
 
@@ -26,7 +41,8 @@ namespace WazeBotDiscord.ServerJoin
         /// <returns>Returns true if it is a new add, false if there was an entry and we are modifying</returns>
         public async Task<bool> AddServerMessage(ulong guildID, string message)
         {
-            var existing = GetExistingJoinMessage(guildID);
+            await EnsureInitializedAsync();
+            var existing = await GetExistingJoinMessage(guildID);
             if (existing == null)
             {
                 var dbSheet = new ServerJoinRecord
@@ -59,7 +75,8 @@ namespace WazeBotDiscord.ServerJoin
 
         public async Task<bool> RemoveServerMessage(ulong guildID)
         {
-            var existing = GetExistingJoinMessage(guildID);
+            await EnsureInitializedAsync();
+            var existing = await GetExistingJoinMessage(guildID);
             if (existing == null)
                 return false;
 
@@ -74,15 +91,25 @@ namespace WazeBotDiscord.ServerJoin
             return true;
         }
 
-        public ServerJoinRecord GetExistingJoinMessage(ulong guildId)
+        public async Task<ServerJoinRecord> GetExistingJoinMessage(ulong guildId)
         {
+            await EnsureInitializedAsync();
             return _serverJoinMessages.Find(r => r.GuildId == guildId);
         }
 
         public async Task ReloadServerjoinAsync()
         {
-            _serverJoinMessages.Clear();
-            await InitAsync();
+            await _initLock.WaitAsync();
+            try
+            {
+                _initialized = false;
+                _serverJoinMessages.Clear();
+            }
+            finally
+            {
+                _initLock.Release();
+            }
+            await EnsureInitializedAsync();
         }
     }
 }

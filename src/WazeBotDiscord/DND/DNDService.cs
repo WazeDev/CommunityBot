@@ -5,31 +5,47 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace WazeBotDiscord.DND
 {
     public class DNDService
     {
-        readonly HttpClient _client;
+        //readonly HttpClient _client;
         List<DNDListItem> _dnds;
+        readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        bool _initialized = false;
 
-        public DNDService(HttpClient client)
+        private async Task EnsureInitializedAsync()
         {
-            _client = client;
-        }
+            if (_initialized) return;
 
-        public async Task InitAsync()
-        {
-            using (var db = new WbContext())
+            await _initLock.WaitAsync();
+            try
             {
-                _dnds = await db.DndList.ToListAsync();
+                if (_initialized) return; // double check after acquiring lock
+                using (var db = new WbContext())
+                {
+                    _dnds = await db.DndList.ToListAsync();
+                }
+                _initialized = true;
+            }
+            finally
+            {
+                _initLock.Release();
             }
         }
 
+        //public DNDService(IHttpClientFactory clientFactory)
+        //{
+        //    _client = clientFactory.CreateClient("WazeBot");
+        //}
+
         public async Task<string> GetDNDTime(ulong userID)
         {
-            var dnd = _dnds.Find(s => s.UserId == userID);
+            await EnsureInitializedAsync();
+            var dnd =  _dnds.Find(s => s.UserId == userID);
             if (dnd == null || dnd.EndTime < DateTime.Now)
             {
                 if (dnd != null)
@@ -50,6 +66,7 @@ namespace WazeBotDiscord.DND
 
         public async Task<bool> AddDND(ulong userID, DateTime endTime)
         {
+            await EnsureInitializedAsync();
             var existing = GetExistingDND(userID);
             if (existing == null)
             {
@@ -83,6 +100,7 @@ namespace WazeBotDiscord.DND
 
         public async Task<bool> RemoveDND(ulong userID)
         {
+            await EnsureInitializedAsync();
             var existing = GetExistingDND(userID);
             if (existing == null)
                 return false;

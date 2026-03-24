@@ -1,13 +1,12 @@
-﻿using Discord.Commands;
+﻿using Discord.Interactions;
 using System.Threading.Tasks;
 using WazeBotDiscord.Lookup;
 using WazeBotDiscord.Utilities;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("lookup")]
-    [Alias("spreadsheet", "sheet")]
-    public class LookupModule : ModuleBase
+    [Group("lookup", "Spreadsheet lookup commands")]
+    public class LookupModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly LookupService _lookupSvc;
 
@@ -16,65 +15,47 @@ namespace WazeBotDiscord.Modules
             _lookupSvc = lookupSvc;
         }
 
-        [Command]
+        [SlashCommand("url", "Get the spreadsheet URL for this channel")]
         public async Task GetUrl()
         {
-            await ReplyAsync(_lookupSvc.GetChannelSheetUrl(Context.Channel.Id));
+            await DeferAsync(ephemeral: true);
+            await FollowupAsync(await _lookupSvc.GetChannelSheetUrl(Context.Channel.Id));
         }
 
-        [Command(RunMode = RunMode.Async), Priority(5)]
-        public async Task Search([Remainder]string searchString)
+        [SlashCommand("search", "Search the spreadsheet for this channel")]
+        public async Task Search([Summary("term", "Search term (minimum 4 characters)")] string searchString)
         {
             if (searchString.Length < 4)
             {
-                await ReplyAsync("Your search term must be at least four characters long.");
+                await RespondAsync("Your search term must be at least four characters long.", ephemeral: true);
                 return;
             }
 
-            await ReplyAsync(await _lookupSvc.SearchSheetAsync(Context.Channel.Id, searchString));
+            await DeferAsync();
+            await FollowupAsync(await _lookupSvc.SearchSheetAsync(Context.Channel.Id, searchString));
         }
 
-        [Command("add"), Priority(10)]
+        [SlashCommand("add", "Add or update the spreadsheet for this channel")]
         [RequireSmOrAbove]
-        public async Task Add([Remainder]string sheetID = null)
+        public async Task Add(
+            [Summary("sheetid", "The Google Sheet ID")] string sheetId,
+            [Summary("gid", "The sheet GID (optional)")] string gid = null)
         {
-            if (sheetID == null)
-            {
-                await ReplyAsync($"{Context.Message.Author.Mention}: You must specify a sheet ID.");
-                return;
-            }
-            var sheetInfo = sheetID.Split(" ");
             bool result;
-            if (sheetInfo.Length > 2)
-            {
-                await ReplyAsync("Incorrect paramaters specified.");
-                return;
-            }
-            else if (sheetInfo.Length == 2)
-            {
-                result = await _lookupSvc.AddSheetIDAsync(Context.Guild.Id, Context.Channel.Id, sheetInfo[0], sheetInfo[1]);
-            }
+            if (gid != null)
+                result = await _lookupSvc.AddSheetIDAsync(Context.Guild.Id, Context.Channel.Id, sheetId, gid);
             else
-                result = await _lookupSvc.AddSheetIDAsync(Context.Guild.Id, Context.Channel.Id, sheetID);
+                result = await _lookupSvc.AddSheetIDAsync(Context.Guild.Id, Context.Channel.Id, sheetId);
 
-
-            var reply = $"{Context.Message.Author.Mention}: sheet added.";
-            if(result == false)
-                reply = $"{Context.Message.Author.Mention}: sheet modified.";
-
-            await ReplyAsync(reply);
+            await RespondAsync(result ? "Sheet added." : "Sheet modified.", ephemeral: true);
         }
 
-        [Command("remove"), Priority(9)]
+        [SlashCommand("remove", "Remove the spreadsheet for this channel")]
         [RequireSmOrAbove]
-        public async Task Remove([Remainder]string sheetID = null)
+        public async Task Remove()
         {
             var removed = await _lookupSvc.RemoveSheetIDAsync(Context.Guild.Id, Context.Channel.Id);
-
-            if (removed)
-                await ReplyAsync("Sheet removed.");
-            else
-                await ReplyAsync("No sheet was set for this channel.");
+            await RespondAsync(removed ? "Sheet removed." : "No sheet was set for this channel.", ephemeral: true);
         }
     }
 }

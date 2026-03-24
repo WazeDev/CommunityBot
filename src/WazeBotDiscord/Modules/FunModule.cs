@@ -1,17 +1,18 @@
-﻿using System;
+﻿using Discord.Interactions;
+using Discord.WebSocket;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Discord.Commands;
-using System.Text.RegularExpressions;
 using System.Net;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using WazeBotDiscord.Fun;
 
 namespace WazeBotDiscord.Modules
 {
-    public class FunModule : ModuleBase
+    public class FunModule : InteractionModuleBase<SocketInteractionContext>
     {
 
         readonly FunService _funSvc;
@@ -22,32 +23,42 @@ namespace WazeBotDiscord.Modules
         }
 
         #region "Slap"
-        [Command("/slap")]
-        public async Task SlapUser([Remainder]string message = null)
+        //[Command("/slap")]
+        //public async Task SlapUser([Remainder]string message = null)
+        //{
+        //    string nickname = ((Discord.WebSocket.SocketGuildUser)Context.User).Nickname;
+        //    if (nickname == null)
+        //        nickname = Context.User.Username;
+        //    await ReplyAsync($"{nickname} slaps {message} around a bit with a large trout.");
+        //}
+        [SlashCommand("slap", "Slap someone with a large trout")]
+        public async Task SlapUser([Summary("target", "Who to slap")] string target)
         {
-            string nickname = ((Discord.WebSocket.SocketGuildUser)Context.User).Nickname;
-            if (nickname == null)
-                nickname = Context.User.Username;
-            await ReplyAsync($"{nickname} slaps {message} around a bit with a large trout.");
+            var user = (SocketGuildUser)Context.User;
+            var name = user.Nickname ?? user.GlobalName ?? user.Username;
+            await RespondAsync($"{name} slaps {target} around a bit with a large trout.");
         }
         #endregion
 
         #region "Diceroll"
-        [Command("diceroll")]
-        public async Task Diceroll([Remainder]string message = null)
+        //[Command("diceroll")]
+        //public async Task Diceroll([Remainder]string message = null)
+        [SlashCommand("diceroll", "Roll some dice")]
+        public async Task Diceroll([Summary("dice", "Dice to roll e.g. 2d6")] string dice = "1d6")
+
         {
             StringBuilder sb = new StringBuilder();
             Regex regURL = new Regex(@"(\d+)d(\d+)");
 
-            if (message == null)
-                message = "1d6";
+            if (dice == null)
+                dice = "1d6";
 
-            if (regURL.Matches(message).Count > 1)
+            if (regURL.Matches(dice).Count > 1)
             {
                 int sum = 0;
 
-                sb.Append($"`{message}` =");
-                foreach (Match itemMatch in regURL.Matches(message))
+                sb.Append($"`{dice}` =");
+                foreach (Match itemMatch in regURL.Matches(dice))
                 {
                     int numDie = Convert.ToInt32(itemMatch.Groups[1].ToString());
                     int sides = Convert.ToInt32(itemMatch.Groups[2].ToString());
@@ -62,7 +73,7 @@ namespace WazeBotDiscord.Modules
             }
             else
             {
-                Match die = regURL.Match(message);
+                Match die = regURL.Match(dice);
                 int numDie = Convert.ToInt32(die.Groups[1].ToString());
                 int sides = Convert.ToInt32(die.Groups[2].ToString());
                 int sum = 0;
@@ -76,7 +87,8 @@ namespace WazeBotDiscord.Modules
                 sb.Append($" = {sum}");
             }
 
-            await ReplyAsync(sb.ToString());
+            //await ReplyAsync(sb.ToString());
+            await RespondAsync(sb.ToString());
         }
 
         private Tuple<int, string> RollTheDice(int numDie, int numSides)
@@ -104,13 +116,21 @@ namespace WazeBotDiscord.Modules
         #endregion
 
         #region "Dad jokes"
-        [Command("dadjoke")]
-        public async Task GetDadJoke([Remainder]string message = null)
-        {
-            var result = _funSvc.GetWebRequest("https://icanhazdadjoke.com/slack", "application/json; charset=utf-8").Result;
+        //[Command("dadjoke")]
+        //public async Task GetDadJoke([Remainder]string message = null)
+        //{
+        //    var result = _funSvc.GetWebRequest("https://icanhazdadjoke.com/slack", "application/json; charset=utf-8").Result;
 
+        //    var dadJoke = JsonConvert.DeserializeObject<TheDadJoke>(result);
+        //    await ReplyAsync(dadJoke.attachments[0].text);
+        //}
+        [SlashCommand("dadjoke", "Get a dad joke")]
+        public async Task GetDadJoke()
+        {
+            await DeferAsync(); // HTTP call may take > 3 seconds
+            var result = await _funSvc.GetWebRequest("https://icanhazdadjoke.com/slack", "application/json; charset=utf-8");
             var dadJoke = JsonConvert.DeserializeObject<TheDadJoke>(result);
-            await ReplyAsync(dadJoke.attachments[0].text);
+            await FollowupAsync(dadJoke.attachments[0].text);
         }
         public class TheDadJoke
         {
@@ -128,30 +148,33 @@ namespace WazeBotDiscord.Modules
         #endregion
 
         #region "Facts"
-        [Command("dogfact")]
-        public async Task GetDogFact([Remainder] string ignore = null)
+        [SlashCommand("dogfact", "Get a dog fact")]
+        public async Task GetDogFact()
         {
-            var result = _funSvc.GetWebRequest("https://dog-api.kinduff.com/api/facts", "application/json; charset=utf-8").Result;
-
+            await DeferAsync();
+            var result = await _funSvc.GetWebRequest("https://dogapi.dog/api/v2/facts?limit=1", "application/json; charset=utf-8");
             var dogFact = JsonConvert.DeserializeObject<DogFacts>(result);
-            await ReplyAsync(dogFact.facts[0]);
+            await FollowupAsync(dogFact.data[0].attributes.body);
         }
 
         //{"facts":["An American Animal Hospital Association poll found that 33% of dog owners admit to talking to their dogs on the phone and leaving answering machine messages for them while away."],"success":true}
         public class DogFacts
         {
-            public List<string> facts { get; set; }
-            public Boolean success { get; set; }
+            public List<DogFact> data { get; set; }
         }
 
-        [Command("numberfact")]
-        public async Task getNumberFactor([Remainder] string ignore = null)
+        public class DogFact
         {
-            
-            var result = _funSvc.GetWebRequest("http://numbersapi.com/random", "text/html").Result;
-
-            await ReplyAsync(result);
+            public string id { get; set; }
+            public string type { get; set; }
+            public DogFactAttributes attributes { get; set; }
         }
+
+        public class DogFactAttributes
+        {
+            public string body { get; set; }
+        }
+
 
         #endregion
     }

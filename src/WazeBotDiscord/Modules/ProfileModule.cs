@@ -1,141 +1,98 @@
 ﻿using Discord;
-using Discord.Commands;
-using System;
-using System.Threading.Tasks;
-using WazeBotDiscord.Profile;
-using System.Text.RegularExpressions;
-using System.Net.Http;
+using Discord.Interactions;
 using System.Net;
 using System.Text;
+using System.Threading.Tasks;
+using WazeBotDiscord.Profile;
 
 namespace WazeBotDiscord.Modules
 {
-    public class ProfileModule : ModuleBase
+    public class ProfileModule : InteractionModuleBase<SocketInteractionContext>
     {
-        /*
-         * Links for justins83: 
-            Editor profile
-            https://www.waze.com/user/editor/justins83 (may not exist)
-
-            Discuss User profile (forumprofile)
-            https://www.waze.com/discuss/u/xanderb/summary
-
-            Wiki profile
-            https://wazeopedia.waze.com/wiki/USA/User:justins83
-
-            Discuss Group profile
-            https://www.waze.com/discuss/g?username=xanderb
-        */
-
         const string editorProfileBase = "https://www.waze.com/user/editor/";
-        const string forumProfileBase = "https://www.waze.com/discuss/u/";
+        const string forumProfileBase = "https://www.waze.com/forum/memberlist.php?mode=viewprofile&un=";
         const string wikiProfileBase = "https://wazeopedia.waze.com/wiki/USA/User:";
-        const string discussProfileBase = "https://www.waze.com/discuss/g?username=";
+        const string discussProfileBase = "https://www.waze.com/discuss/u/";
 
-        [Command("profile")]
-        public async Task Tiles([Remainder]string editorName )
+        [SlashCommand("profile", "Look up Waze profiles for an editor")]
+        public async Task GetProfile([Summary("username", "The Waze editor username")] string editorName)
         {
-            string editorProfile = editorProfileBase + editorName;
-            string forumProfile = forumProfileBase + editorName + "/summary";
-            string wikiProfile = wikiProfileBase + editorName;
-            string discussProfile = discussProfileBase + editorName;
+            await DeferAsync();
 
-            wikiProfile = await CheckProfile(wikiProfile, "wiki");
-            discussProfile = await CheckProfile(discussProfile, "Discuss");
+            var editorProfile = editorProfileBase + editorName;
+            var forumProfile = await CheckProfile(forumProfileBase + editorName, "forum");
+            var wikiProfile = await CheckProfile(wikiProfileBase + editorName, "wiki");
+            var discussProfile = await CheckProfile(discussProfileBase + editorName + "/summary", "Discuss");
 
-            ProfileResult pr = new ProfileResult();
-            pr.EditorName = editorName;
-            pr.EditorProfile = $"<{editorProfile}>";
-            pr.ForumProfile = forumProfile;
-            if (forumProfile.StartsWith("http"))
-                pr.ForumProfile = $"<{forumProfile}>";
-            pr.WikiProfile = wikiProfile;
-            if (wikiProfile.StartsWith("http"))
-                pr.WikiProfile = $"<{wikiProfile}>";
-            pr.DiscussProfile = discussProfile;
-            if (discussProfile.StartsWith("http"))
-                pr.DiscussProfile = $"<{discussProfile}>";
+            var pr = new ProfileResult
+            {
+                EditorName = editorName,
+                EditorProfile = $"<{editorProfile}>",
+                ForumProfile = forumProfile.StartsWith("http") ? $"<{forumProfile}>" : forumProfile,
+                WikiProfile = wikiProfile.StartsWith("http") ? $"<{wikiProfile}>" : wikiProfile,
+                DiscussProfile = discussProfile.StartsWith("http") ? $"<{discussProfile}>" : discussProfile
+            };
 
-            var embed = CreateEmbed(pr);
-           /* StringBuilder sr = new StringBuilder();
-            
-            sr.AppendLine($":bust_in_silhouette: **{pr.EditorName}**");
-            sr.AppendLine("_Editor Profile_");
-            sr.AppendLine(pr.EditorProfile);
-            sr.AppendLine("_Forum Profile_");
-            sr.AppendLine(pr.ForumProfile);
-            sr.AppendLine("_Wiki Profile_");
-            sr.AppendLine(pr.WikiProfile);*/
-            //await ReplyAsync(sr.ToString());
-            await ReplyAsync("", embed: embed);
+            var embed = await CreateEmbedAsync(pr);
+            await FollowupAsync(embed: embed);
         }
 
         async Task<string> CheckProfile(string url, string profileType)
         {
-            try {
-                HttpWebRequest request = WebRequest.Create(url) as HttpWebRequest;
-                //Setting the Request method HEAD
+            try
+            {
+                var request = WebRequest.Create(url) as HttpWebRequest;
                 request.Method = "HEAD";
-                //Getting the Web Response.
-                HttpWebResponse response = await request.GetResponseAsync() as HttpWebResponse;
-                //Returns TRUE if the Status code == 200
-
-                if (!(response.StatusCode == HttpStatusCode.OK))
-                    url = "No " + profileType + " profile";
+                var response = await request.GetResponseAsync() as HttpWebResponse;
+                if (response.StatusCode != HttpStatusCode.OK)
+                    return "No " + profileType + " profile";
                 response.Close();
+                return url;
             }
-            catch {
-                url = "No " + profileType + " profile";
+            catch
+            {
+                return "No " + profileType + " profile";
             }
-
-            return url;
         }
 
-        Embed CreateEmbed(ProfileResult item)
+        async Task<Embed> CreateEmbedAsync(ProfileResult item)
         {
             string avatarURL = "";
-            ulong userID = 0;
-            if (Context.Guild != null) { 
-                var users = Context.Guild.GetUsersAsync(CacheMode.AllowDownload);
 
-                foreach (var u in users.Result)
+            if (Context.Guild != null)
+            {
+                var users = await Context.Guild.GetUsersAsync().FlattenAsync();
+                foreach (var u in users)
                 {
                     if (u.Username.ToLower().StartsWith(item.EditorName.ToLower()))
                     {
                         avatarURL = u.GetAvatarUrl();
-                        userID = u.Id;
                         break;
                     }
                 }
             }
-            StringBuilder sr = new StringBuilder();
-            sr.AppendLine("[Editor Profile](" + item.EditorProfile + ")");
-            if (item.ForumProfile.Contains("waze.com"))
-                sr.AppendLine("[Discuss User Profile](" + item.ForumProfile + ")");
-            else
-                sr.AppendLine(item.ForumProfile); 
-            if (item.DiscussProfile.Contains("waze.com"))
-                sr.AppendLine("[Discuss Group Profile](" + item.DiscussProfile + ")");
-            else
-                sr.AppendLine(item.DiscussProfile);
-            if (item.WikiProfile.Contains("waze.com"))
-                sr.AppendLine("[Wiki Profile](" + item.WikiProfile + ")");
-            else
-                sr.AppendLine(item.WikiProfile);
-            var embed = new EmbedBuilder()
+
+            var sr = new StringBuilder();
+            sr.AppendLine(item.EditorProfile.Contains("waze.com")
+                ? $"[Editor Profile]({item.EditorProfile})"
+                : item.EditorProfile);
+            sr.AppendLine(item.ForumProfile.Contains("waze.com")
+                ? $"[Forum Profile]({item.ForumProfile})"
+                : item.ForumProfile);
+            sr.AppendLine(item.DiscussProfile.Contains("waze.com")
+                ? $"[Discuss Profile]({item.DiscussProfile})"
+                : item.DiscussProfile);
+            sr.AppendLine(item.WikiProfile.Contains("waze.com")
+                ? $"[Wiki Profile]({item.WikiProfile})"
+                : item.WikiProfile);
+
+            return new EmbedBuilder()
             {
                 Color = new Color(147, 196, 211),
                 Title = "Profiles for " + item.EditorName,
                 Description = sr.ToString(),
                 ThumbnailUrl = avatarURL
-
-                /*Footer = new EmbedFooterBuilder
-                {
-                    //Text = $"Last updated on {item.ModifiedAt.Date.ToString("yyyy-MM-dd")}"
-                }*/
-            };
-
-            return embed.Build();
+            }.Build();
         }
     }
 }

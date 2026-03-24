@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace WazeBotDiscord.ChannelSync
@@ -13,26 +14,42 @@ namespace WazeBotDiscord.ChannelSync
     public class ChannelSyncService
     {
         List<SyncChannelsRow> _syncdChannels;
+        readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        bool _initialized = false;
 
         public ChannelSyncService()
         {
         }
 
-        public async Task InitAsync()
+        private async Task EnsureInitializedAsync()
         {
-            using (var db = new WbContext())
+            if (_initialized) return;
+
+            await _initLock.WaitAsync();
+            try
             {
-                _syncdChannels = await db.SyncChannels.ToListAsync();
+                if (_initialized) return; // double check after acquiring lock
+                using (var db = new WbContext())
+                {
+                    _syncdChannels = await db.SyncChannels.ToListAsync();
+                }
+                _initialized = true;
+            }
+            finally
+            {
+                _initLock.Release();
             }
         }
 
-        public SyncChannelsRow getSyncChannels(ulong channel) 
+        public async Task<SyncChannelsRow> getSyncChannels(ulong channel)
         {
+            await EnsureInitializedAsync();
             return _syncdChannels.Find(c => c.Channel1 == channel || c.Channel2 == channel);
         }
 
         public async Task<bool> AddChannelSync(ulong channelID1, ulong channelID2,ulong AddedBy, DateTime AddedAt, string AddedByName)
         {
+            await EnsureInitializedAsync();
             var dbSheet = new SyncChannelsRow
             {
                 Channel1 = channelID1,
@@ -55,7 +72,8 @@ namespace WazeBotDiscord.ChannelSync
 
         public async Task<bool> RemoveChannelSync(ulong channelID)
         {
-            var syncdChannels = getSyncChannels(channelID);
+            await EnsureInitializedAsync();
+            var syncdChannels = await getSyncChannels(channelID);
             if (syncdChannels == null)
                 return false;
 
@@ -72,7 +90,8 @@ namespace WazeBotDiscord.ChannelSync
         public async Task ReloadChannelSyncAsync()
         {
             _syncdChannels.Clear();
-            await InitAsync();
+            _initialized = false;
+            await EnsureInitializedAsync();
         }
     }
 }

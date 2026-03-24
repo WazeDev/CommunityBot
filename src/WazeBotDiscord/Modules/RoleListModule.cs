@@ -1,5 +1,5 @@
 ﻿using Discord;
-using Discord.Commands;
+using Discord.Interactions;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -7,40 +7,34 @@ using WazeBotDiscord.Utilities;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("roles")]
+    [Group("roles", "Role management commands")]
     [RequireAdmin]
-    public class RoleListModule : ModuleBase
+    public class RoleListModule : InteractionModuleBase<SocketInteractionContext>
     {
-        [Command]
-        public async Task ListRoles([Remainder]string unused = null)
+        [SlashCommand("list", "List all roles on this server")]
+        public async Task ListRoles()
         {
-            var orderedRoles = Context.Guild.Roles.OrderByDescending(r => r.Position);
+            await DeferAsync(ephemeral: true);
 
+            var orderedRoles = Context.Guild.Roles.OrderByDescending(r => r.Position);
             var replySb = new StringBuilder("__Roles__\n");
-            string reply = "";
+
             foreach (var role in orderedRoles)
             {
-                var roleName = role.Name;
-                if (roleName == "@everyone")
-                    roleName = "(@)everyone";
-                var roleLine = $"{roleName}: {role.Id}";
-                if(replySb.Length + roleLine.Length < 2000)
-                    replySb.AppendLine(roleLine);
-                else
+                var roleName = role.Name == "@everyone" ? "(@)everyone" : role.Name;
+                var roleLine = $"{roleName}: {role.Id}\n";
+
+                if (replySb.Length + roleLine.Length >= 2000)
                 {
-                    reply = replySb.ToString();
-                    reply = reply.TrimEnd('\\', 'n');
-                    await ReplyAsync(reply);
+                    await FollowupAsync(replySb.ToString().TrimEnd(), ephemeral: true);
                     replySb.Clear();
-                    replySb.AppendLine(roleLine);
                 }
-                
+
+                replySb.AppendLine(roleLine);
             }
 
-            reply = replySb.ToString();
-            reply = reply.TrimEnd('\\', 'n');
-
-            await ReplyAsync(reply);
+            if (replySb.Length > 0)
+                await FollowupAsync(replySb.ToString().TrimEnd(), ephemeral: true);
         }
     }
 }

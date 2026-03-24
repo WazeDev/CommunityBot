@@ -1,67 +1,45 @@
-﻿using Discord.Commands;
+﻿using Discord;
+using Discord.Interactions;
 using System.Threading.Tasks;
-using WazeBotDiscord.Utilities;
 using WazeBotDiscord.ServerLeave;
-using System;
+using WazeBotDiscord.Utilities;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("serverleave")]
-    public class ServerLeaveModule : ModuleBase
+    [Group("serverleave", "Server leave message commands")]
+    public class ServerLeaveModule : InteractionModuleBase<SocketInteractionContext>
     {
-
         readonly ServerLeaveService _serverLeaveSvc;
 
-        public ServerLeaveModule(ServerLeaveService lookupSvc)
+        public ServerLeaveModule(ServerLeaveService serverLeaveSvc)
         {
-            _serverLeaveSvc = lookupSvc;
+            _serverLeaveSvc = serverLeaveSvc;
         }
 
-        [Command]
+        [SlashCommand("get", "Get the leave notification channel for this server")]
         public async Task ListAll()
         {
-            var result = _serverLeaveSvc.GetExistingLeaveChannel(Context.Guild.Id);
-
+            var result = await _serverLeaveSvc.GetExistingLeaveChannel(Context.Guild.Id);
             if (result == null)
-                await ReplyAsync("No channel has been set for this server.");
+                await RespondAsync("No channel has been set for this server.", ephemeral: true);
             else
-                await ReplyAsync($"Channel <#{result.ChannelId}> set for this server.");
+                await RespondAsync($"Channel <#{result.ChannelId}> set for this server.", ephemeral: true);
         }
 
-        [Command("add"), Priority(10)]
+        [SlashCommand("add", "Add or update the leave notification channel for this server")]
         [RequireAdmin]
-        public async Task Add([Remainder]string channelID = null)
+        public async Task Add([Summary("channel", "The channel to send leave notifications to")] IChannel channel)
         {
-            if (channelID == null)
-            {
-                await ReplyAsync($"{Context.Message.Author.Mention}: You must specify a channel ID.");
-                return;
-            }
-
-            if (channelID.StartsWith("<#") && channelID.EndsWith(">"))
-                channelID = channelID.TrimStart('<').TrimStart('#').TrimEnd('>');
-
-            var result = await _serverLeaveSvc.AddChannelIDAsync(Context.Guild.Id, Convert.ToUInt64(channelID));
-
-            var reply = $"{Context.Message.Author.Mention}: channel added.";
-            if (result == false)
-                reply = $"{Context.Message.Author.Mention}: channel modified.";
-
-            await ReplyAsync(reply);
+            var result = await _serverLeaveSvc.AddChannelIDAsync(Context.Guild.Id, channel.Id);
+            await RespondAsync(result ? "Channel added." : "Channel modified.", ephemeral: true);
         }
 
-        [Command("remove"), Priority(9)]
+        [SlashCommand("remove", "Remove the leave notification channel for this server")]
         [RequireAdmin]
-        public async Task Remove([Remainder]string channelID = null)
+        public async Task Remove()
         {
             var removed = await _serverLeaveSvc.RemoveServerChannelAsync(Context.Guild.Id);
-
-            if (removed)
-                await ReplyAsync("Channel removed.");
-            else
-                await ReplyAsync("No channel was set for this server.");
-
+            await RespondAsync(removed ? "Channel removed." : "No channel was set for this server.", ephemeral: true);
         }
-
     }
 }

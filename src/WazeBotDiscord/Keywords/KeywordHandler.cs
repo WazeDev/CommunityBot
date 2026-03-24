@@ -29,7 +29,7 @@ namespace WazeBotDiscord.Keywords
                 await myChannel.SendMessageAsync(rtcReplies[num], false);
             }
 
-            foreach (var m in service.CheckForKeyword(msg.Content, msg.Author.Id, channel.Guild.Id, channel.Id))
+            foreach (var m in await service.CheckForKeywordAsync(msg.Content, msg.Author.Id, channel.Guild.Id, channel.Id))
             {
                 if (msg.Author.Id == m.UserId
                     || !channel.Users.Any(u => u.Id == m.UserId))
@@ -91,7 +91,8 @@ namespace WazeBotDiscord.Keywords
                 reply.Append(newMsg);
                 reply.Append("\n```");
 
-                var dm = await client.GetUser(m.UserId).GetOrCreateDMChannelAsync();
+
+                var dm = await (await client.GetUserAsync(m.UserId)).CreateDMChannelAsync();
                 await dm.SendMessageAsync(reply.ToString());
             }
         }

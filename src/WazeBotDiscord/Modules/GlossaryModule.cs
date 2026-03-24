@@ -18,13 +18,13 @@ namespace WazeBotDiscord.Modules
         [Command]
         public async Task Help()
         {
-            await ReplyAsync("Use `!glossary term` to search the glossary for that term. Search terms must currently match exactly.\nThe glossary is located at: <https://www.waze.com/discuss/t/glossary/377948>");
+            await ReplyAsync("Use `!glossary term` to search the glossary for that term. Search terms must currently match exactly.\nThe glossary is located at: <https://wazeopedia.waze.com/wiki/USA/Glossary>");
         }
 
         [Command]
         public async Task Search([Remainder]string term)
         {
-            var item = _glossarySvc.GetGlossaryItem(term.ToLowerInvariant());
+            var item = await _glossarySvc.GetGlossaryItem(term.ToLowerInvariant());
             if (item == null)
             {
                 await ReplyAsync($"No match for {term}.");
@@ -46,7 +46,7 @@ namespace WazeBotDiscord.Modules
             {
                 Color = new Color(147, 196, 211),
                 Title = item.Term,
-                Url = $"https://www.waze.com/discuss/t/glossary/377948/1#{urlID}",
+                Url = $"https://wazeopedia.waze.com/wiki/USA/Glossary#urlID",
                 Description = item.Description,
 
                 Footer = new EmbedFooterBuilder

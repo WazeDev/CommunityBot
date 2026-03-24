@@ -1,5 +1,5 @@
 ﻿using Discord;
-using Discord.Commands;
+using Discord.Interactions;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -7,31 +7,27 @@ using WazeBotDiscord.Utilities;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("roleid")]
+    [Group("roleid", "Role ID lookup commands")]
     [RequireOwner]
-    public class RoleIdModule : ModuleBase
+    public class RoleIdModule : InteractionModuleBase<SocketInteractionContext>
     {
-        [Command]
-        public async Task GetSpecific(IRole role) => await ReplyAsync($"Role {role.Name}: {role.Id}");
+        [SlashCommand("get", "Get the ID of a specific role")]
+        public async Task GetSpecific([Summary("role", "The role to look up")] IRole role)
+        {
+            await RespondAsync($"Role {role.Name}: {role.Id}", ephemeral: true);
+        }
 
-        [Command("wazeall")]
+        [SlashCommand("wazeall", "Get IDs of all Waze roles on this server")]
         public async Task GetAll()
         {
             var reply = new StringBuilder("__Waze roles on this server__");
-
             foreach (var name in WazeRoleNames.RoleNames)
             {
-                var idString = "";
                 var role = Context.Guild.Roles.FirstOrDefault(r => r.Name == name);
-                if (role == null)
-                    idString = "(role not present)";
-                else
-                    idString = role.Id.ToString();
-
+                var idString = role == null ? "(role not present)" : role.Id.ToString();
                 reply.Append($"\n{name}: {idString}");
             }
-
-            await ReplyAsync(reply.ToString());
+            await RespondAsync(reply.ToString(), ephemeral: true);
         }
     }
 }

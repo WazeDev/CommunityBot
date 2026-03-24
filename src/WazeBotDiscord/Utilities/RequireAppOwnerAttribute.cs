@@ -1,4 +1,5 @@
-﻿using Discord.Commands;
+﻿using Discord;
+using Discord.Interactions;
 using Discord.WebSocket;
 using System;
 using System.Threading.Tasks;
@@ -8,7 +9,8 @@ namespace WazeBotDiscord.Utilities
 {
     public class RequireAppOwnerAttribute : PreconditionAttribute
     {
-        public async override Task<PreconditionResult> CheckPermissionsAsync(ICommandContext context, CommandInfo command, IServiceProvider services)
+        public async override Task<PreconditionResult> CheckRequirementsAsync(
+             IInteractionContext context, ICommandInfo command, IServiceProvider services)
         {
             var appInfo = await context.Client.GetApplicationInfoAsync();
             if (appInfo.Owner.Id == context.User.Id)

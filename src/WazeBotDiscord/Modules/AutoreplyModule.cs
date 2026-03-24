@@ -1,4 +1,5 @@
-﻿using Discord.Commands;
+﻿using Discord;
+using Discord.Interactions;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -7,23 +8,22 @@ using WazeBotDiscord.Utilities;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("autoreply")]
-    [Alias("autoreplies", "reply", "replies")]
-    public class BaseAutoreplyModule : ModuleBase
+    [Group("autoreply", "Autoreply commands")]
+    public class AutoreplyModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly AutoreplyService _arService;
 
-        public BaseAutoreplyModule(AutoreplyService arService)
+        public AutoreplyModule(AutoreplyService arService)
         {
             _arService = arService;
         }
 
-        [Command]
+        [SlashCommand("list", "List all autoreplies for this channel")]
         public async Task ListAll()
         {
-            var channelReplies = _arService.GetChannelAutoreplies(Context.Channel.Id).Select(r => r.Trigger);
-            var guildReplies = _arService.GetGuildAutoreplies(Context.Guild.Id).Select(r => r.Trigger);
-            var globalReplies = _arService.GetGlobalAutoreplies().Select(r => r.Trigger);
+            var channelReplies = (await _arService.GetChannelAutoreplies(Context.Channel.Id)).Select(r => r.Trigger);
+            var guildReplies = (await _arService.GetGuildAutoreplies(Context.Guild.Id)).Select(r => r.Trigger);
+            var globalReplies = (await _arService.GetGlobalAutoreplies()).Select(r => r.Trigger);
 
             guildReplies = guildReplies.Select(r => channelReplies.Contains(r) ? "~~" + r + "~~" : r);
             globalReplies = globalReplies.Select(r => channelReplies.Contains(r) ? "~~" + r + "~~" : r);
@@ -33,227 +33,130 @@ namespace WazeBotDiscord.Modules
             var guildRepliesString = string.Join(", ", guildReplies);
             var globalRepliesString = string.Join(", ", globalReplies);
 
-            if (string.IsNullOrEmpty(channelRepliesString))
-                channelRepliesString = "_(none)_";
+            if (string.IsNullOrEmpty(channelRepliesString)) channelRepliesString = "_(none)_";
+            if (string.IsNullOrEmpty(guildRepliesString)) guildRepliesString = "_(none)_";
+            if (string.IsNullOrEmpty(globalRepliesString)) globalRepliesString = "_(none)_";
 
-            if (string.IsNullOrEmpty(guildRepliesString))
-                guildRepliesString = "_(none)_";
-
-            if (string.IsNullOrEmpty(globalRepliesString))
-                globalRepliesString = "_(none)_";
-
-            var msg = "__Channel__\n";
-            msg += channelRepliesString;
-
-            msg += "\n\n__Server__\n";
-            msg += guildRepliesString;
-
-            msg += "\n\n__Global__\n";
-            msg += globalRepliesString;
+            var msg = $"__Channel__\n{channelRepliesString}\n\n__Server__\n{guildRepliesString}\n\n__Global__\n{globalRepliesString}";
 
             if (msg.Length > 1500)
-            {
-                msg = msg.Substring(0, 1500);
-                msg += "\n\n_(autoreply too long, sorry!)_";
-            }
+                msg = msg.Substring(0, 1500) + "\n\n_(autoreply list too long, sorry!)_";
 
-            await ReplyAsync(msg);
+            await RespondAsync(msg, ephemeral: true);
         }
 
-        [Group("add")]
-        public class AddAutoreplyModule : ModuleBase
+        [SlashCommand("add-channel", "Add an autoreply to this channel")]
+        [RequireSmOrAbove]
+        public async Task AddToChannel(
+            [Summary("trigger", "The trigger word")] string trigger,
+            [Summary("reply", "The reply message")] string reply)
         {
-            readonly AutoreplyService _arService;
-            readonly CommandService _cmdSvc;
+            if (!await ValidateAutoreply(trigger, reply)) return;
 
-            public AddAutoreplyModule(AutoreplyService arService, CommandService cmdSvc)
+            if (trigger.StartsWith("!"))
+                trigger = trigger.Substring(1);
+
+            var autoreply = new Autoreply
             {
-                _arService = arService;
-                _cmdSvc = cmdSvc;
-            }
+                ChannelId = Context.Channel.Id,
+                GuildId = Context.Guild.Id,
+                Trigger = trigger.ToLowerInvariant(),
+                Reply = reply,
+                AddedById = Context.User.Id,
+                AddedAt = DateTime.UtcNow
+            };
 
-            [Command("channel")]
-            [Summary("Add an autoreply to this channel.")]
-            [RequireSmOrAbove]
-            public async Task AddToChannel(string trigger, [Remainder]string reply)
-            {
-                if (_cmdSvc.Search(Context, trigger).IsSuccess)
-                {
-                    await ReplyAsync("That trigger matches a bot command and cannot be used.");
-                    return;
-                }
-
-                if (trigger.Length > 30)
-                {
-                    await ReplyAsync("Trigger is too long. Trigger must be <= 30 characters.");
-                    return;
-                }
-
-                if (reply.Length > 1000)
-                {
-                    await ReplyAsync("Reply is too long.");
-                    return;
-                }
-
-                if (trigger.StartsWith("!"))
-                    trigger = trigger.Substring(1);
-
-                var autoreply = new Autoreply
-                {
-                    ChannelId = Context.Channel.Id,
-                    GuildId = Context.Guild.Id,
-                    Trigger = trigger.ToLowerInvariant(),
-                    Reply = reply,
-                    AddedById = Context.User.Id,
-                    AddedAt = DateTime.UtcNow
-                };
-
-                var newlyAdded = await _arService.AddOrModifyAutoreply(autoreply);
-                var resultString = newlyAdded ? "added" : "edited";
-
-                await ReplyAsync($"Channel autoreply {resultString}. {autoreply.Trigger} | {autoreply.Reply}");
-            }
-
-            [Command("server")]
-            [Summary("Add an autoreply to this server.")]
-            [RequireSmOrAboveAdminInGlobal]
-            public async Task AddToServer(string trigger, [Remainder]string reply)
-            {
-                if (_cmdSvc.Search(Context, trigger).IsSuccess)
-                {
-                    await ReplyAsync("That trigger matches a bot command and cannot be used.");
-                    return;
-                }
-
-                if (trigger.Length > 30)
-                {
-                    await ReplyAsync("Trigger is too long. Trigger must be <= 30 characters.");
-                    return;
-                }
-
-                if (reply.Length > 1000)
-                {
-                    await ReplyAsync("Reply is too long.");
-                    return;
-                }
-
-                if (trigger.StartsWith("!"))
-                    trigger = trigger.Substring(1);
-
-                var autoreply = new Autoreply
-                {
-                    ChannelId = 1,
-                    GuildId = Context.Guild.Id,
-                    Trigger = trigger.ToLowerInvariant(),
-                    Reply = reply,
-                    AddedById = Context.User.Id,
-                    AddedAt = DateTime.UtcNow
-                };
-
-                var newlyAdded = await _arService.AddOrModifyAutoreply(autoreply);
-                var resultString = newlyAdded ? "added" : "edited";
-
-                await ReplyAsync($"Server autoreply {resultString}. {autoreply.Trigger} | {autoreply.Reply}");
-            }
-
-            [Command("global")]
-            [Summary("Add a global autoreply.")]
-            [RequireChampInNationalAdminInGlobalAttribute]
-            public async Task AddToGlobal(string trigger, [Remainder]string reply)
-            {
-                if (_cmdSvc.Search(Context, trigger).IsSuccess)
-                {
-                    await ReplyAsync("That trigger matches a bot command and cannot be used.");
-                    return;
-                }
-
-                if (trigger.Length > 30)
-                {
-                    await ReplyAsync("Trigger is too long. Trigger must be <= 30 characters.");
-                    return;
-                }
-
-                if (reply.Length > 1000)
-                {
-                    await ReplyAsync("Reply is too long.");
-                    return;
-                }
-
-                if (trigger.StartsWith("!"))
-                    trigger = trigger.Substring(1);
-
-                var autoreply = new Autoreply
-                {
-                    ChannelId = 1,
-                    GuildId = 1,
-                    Trigger = trigger.ToLowerInvariant(),
-                    Reply = reply,
-                    AddedById = Context.User.Id,
-                    AddedAt = DateTime.UtcNow
-                };
-
-                var newlyAdded = await _arService.AddOrModifyAutoreply(autoreply);
-                var resultString = newlyAdded ? "added" : "edited";
-
-                await ReplyAsync($"Global autoreply {resultString}. {autoreply.Trigger} | {autoreply.Reply}");
-            }
+            var newlyAdded = await _arService.AddOrModifyAutoreply(autoreply);
+            await RespondAsync($"Channel autoreply {(newlyAdded ? "added" : "edited")}. {autoreply.Trigger} | {autoreply.Reply}", ephemeral: true);
         }
 
-        [Group("remove")]
-        [Alias("delete")]
-        public class RemoveAutoreplyModule : ModuleBase
+        [SlashCommand("add-server", "Add an autoreply to this server")]
+        [RequireSmOrAboveAdminInGlobal]
+        public async Task AddToServer(
+            [Summary("trigger", "The trigger word")] string trigger,
+            [Summary("reply", "The reply message")] string reply)
         {
-            readonly AutoreplyService _arService;
+            if (!await ValidateAutoreply(trigger, reply)) return;
 
-            public RemoveAutoreplyModule(AutoreplyService arService)
+            if (trigger.StartsWith("!"))
+                trigger = trigger.Substring(1);
+
+            var autoreply = new Autoreply
             {
-                _arService = arService;
-            }
+                ChannelId = 1,
+                GuildId = Context.Guild.Id,
+                Trigger = trigger.ToLowerInvariant(),
+                Reply = reply,
+                AddedById = Context.User.Id,
+                AddedAt = DateTime.UtcNow
+            };
 
-            [Command("channel")]
-            [Summary("Remove an autoreply from this channel.")]
-            [RequireSmOrAbove]
-            public async Task RemoveFromChannel(string trigger)
+            var newlyAdded = await _arService.AddOrModifyAutoreply(autoreply);
+            await RespondAsync($"Server autoreply {(newlyAdded ? "added" : "edited")}. {autoreply.Trigger} | {autoreply.Reply}", ephemeral: true);
+        }
+
+        [SlashCommand("add-global", "Add a global autoreply")]
+        [RequireChampInNationalAdminInGlobalAttribute]
+        public async Task AddToGlobal(
+            [Summary("trigger", "The trigger word")] string trigger,
+            [Summary("reply", "The reply message")] string reply)
+        {
+            if (!await ValidateAutoreply(trigger, reply)) return;
+
+            if (trigger.StartsWith("!"))
+                trigger = trigger.Substring(1);
+
+            var autoreply = new Autoreply
             {
-                trigger = trigger.ToLowerInvariant();
+                ChannelId = 1,
+                GuildId = 1,
+                Trigger = trigger.ToLowerInvariant(),
+                Reply = reply,
+                AddedById = Context.User.Id,
+                AddedAt = DateTime.UtcNow
+            };
 
-                var removed = await _arService.RemoveAutoreply(Context.Channel.Id, Context.Guild.Id, trigger);
+            var newlyAdded = await _arService.AddOrModifyAutoreply(autoreply);
+            await RespondAsync($"Global autoreply {(newlyAdded ? "added" : "edited")}. {autoreply.Trigger} | {autoreply.Reply}", ephemeral: true);
+        }
 
-                if (removed)
-                    await ReplyAsync("Channel autoreply removed.");
-                else
-                    await ReplyAsync("Channel autoreply does not exist.");
-            }
+        [SlashCommand("remove-channel", "Remove an autoreply from this channel")]
+        [RequireSmOrAbove]
+        public async Task RemoveFromChannel([Summary("trigger", "The trigger to remove")] string trigger)
+        {
+            var removed = await _arService.RemoveAutoreply(Context.Channel.Id, Context.Guild.Id, trigger.ToLowerInvariant());
+            await RespondAsync(removed ? "Channel autoreply removed." : "Channel autoreply does not exist.", ephemeral: true);
+        }
 
-            [Command("server")]
-            [Summary("Remove an autoreply from this server.")]
-            [RequireSmOrAboveAdminInGlobal]
-            public async Task RemoveFromServer(string trigger)
+        [SlashCommand("remove-server", "Remove an autoreply from this server")]
+        [RequireSmOrAboveAdminInGlobal]
+        public async Task RemoveFromServer([Summary("trigger", "The trigger to remove")] string trigger)
+        {
+            var removed = await _arService.RemoveAutoreply(1, Context.Guild.Id, trigger.ToLowerInvariant());
+            await RespondAsync(removed ? "Server autoreply removed." : "Server autoreply does not exist.", ephemeral: true);
+        }
+
+        [SlashCommand("remove-global", "Remove a global autoreply")]
+        [RequireChampInNationalAdminInGlobalAttribute]
+        public async Task RemoveFromGlobal([Summary("trigger", "The trigger to remove")] string trigger)
+        {
+            var removed = await _arService.RemoveAutoreply(1, 1, trigger.ToLowerInvariant());
+            await RespondAsync(removed ? "Global autoreply removed." : "Global autoreply does not exist.", ephemeral: true);
+        }
+
+        async Task<bool> ValidateAutoreply(string trigger, string reply)
+        {
+            if (trigger.Length > 30)
             {
-                trigger = trigger.ToLowerInvariant();
-
-                var removed = await _arService.RemoveAutoreply(1, Context.Guild.Id, trigger);
-
-                if (removed)
-                    await ReplyAsync("Server autoreply removed.");
-                else
-                    await ReplyAsync("Server autoreply does not exist.");
+                await RespondAsync("Trigger is too long. Trigger must be <= 30 characters.", ephemeral: true);
+                return false;
             }
-
-            [Command("global")]
-            [Summary("Remove a global autoreply.")]
-            [RequireChampInNationalAdminInGlobalAttribute]
-            public async Task RemoveFromGlobal(string trigger)
+            if (reply.Length > 1000)
             {
-                trigger = trigger.ToLowerInvariant();
-
-                var removed = await _arService.RemoveAutoreply(1, 1, trigger);
-
-                if (removed)
-                    await ReplyAsync("Global autoreply removed.");
-                else
-                    await ReplyAsync("Global autoreply does not exist.");
+                await RespondAsync("Reply is too long.", ephemeral: true);
+                return false;
             }
+            return true;
         }
     }
 }

@@ -13,11 +13,11 @@ namespace WazeBotDiscord.BotManagement
         string _endpointURL;
         string _validationKey;
 
-        public BotManagementService(HttpClient client, string endpointURL, string validationKey)
+        public BotManagementService(IHttpClientFactory clientFactory)
         {
-            _client = client;
-            _endpointURL = endpointURL;
-            _validationKey = validationKey;
+            _client = clientFactory.CreateClient("WazeBot");
+            _endpointURL = Environment.GetEnvironmentVariable("BOT_ENDPOINT_URL");
+            _validationKey = Environment.GetEnvironmentVariable("VALIDATION_KEY");
         }
 
         public async Task<Boolean> ExecuteBotService(string command)

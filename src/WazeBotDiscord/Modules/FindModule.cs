@@ -1,17 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Discord.Interactions;
 using Newtonsoft.Json;
-using Discord.Commands;
+using System;
+using System.Collections.Generic;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using WazeBotDiscord.Find;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("find")]
-    public class FindModule : ModuleBase
+    [Group("find", "Waze map find commands")]
+    public class FindModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly FindService _findSvc;
 
@@ -20,114 +19,86 @@ namespace WazeBotDiscord.Modules
             _findSvc = findSvc;
         }
 
-        [Command("segment")]
-        public async Task FindSegment([Remainder] string message = null)
+        [SlashCommand("segment", "Find a Waze segment by ID")]
+        public async Task FindSegment([Summary("id", "The segment ID")] string id)
         {
             Regex regURL = new Regex(@"^\d{1,10}");
-            if (regURL.Matches(message).Count == 1)
+            if (regURL.Matches(id).Count != 1)
             {
-                string urlNA = "https://www.waze.com/Descartes/app/HouseNumbers?ids=" + message.Trim();
-                var result = _findSvc.GetWebRequest(urlNA, "application/json; charset=utf-8").Result;
-                HouseNumberResult HNResult = JsonConvert.DeserializeObject<HouseNumberResult>(result);
-                StringBuilder reply = new StringBuilder();
-                if (HNResult.editAreas.objects.Count > 0)
-                {
-                    GeoPoint centroid = _findSvc.GetCentroid(HNResult.editAreas.objects[0].geometry.coordinates[0]);
-                    reply.AppendLine($"<https://www.waze.com/en-US/editor/?env=usa&lon={centroid.x}&lat={centroid.y}&zoom=6&segments={message}>");
-                }
-
-                string urlROW = "https://www.waze.com/row-Descartes/app/HouseNumbers?ids=" + message.Trim();
-                result = _findSvc.GetWebRequest(urlROW, "application/json; charset=utf-8").Result;
-                HNResult = JsonConvert.DeserializeObject<HouseNumberResult>(result);
-                if (HNResult.editAreas.objects.Count > 0)
-                {
-                    GeoPoint centroid = _findSvc.GetCentroid(HNResult.editAreas.objects[0].geometry.coordinates[0]);
-                    reply.AppendLine($"<https://www.waze.com/editor/?env=row&lon={centroid.x}&lat={centroid.y}&zoom=6&segments={message}>");
-                }
-
-                string urlIL = "https://www.waze.com/il-Descartes/app/HouseNumbers?ids=" + message.Trim();
-                result = _findSvc.GetWebRequest(urlIL, "application/json; charset=utf-8").Result;
-                HNResult = JsonConvert.DeserializeObject<HouseNumberResult>(result);
-                if (HNResult.editAreas.objects.Count > 0)
-                {
-                    GeoPoint centroid = _findSvc.GetCentroid(HNResult.editAreas.objects[0].geometry.coordinates[0]);
-                    reply.AppendLine($"<https://www.waze.com/editor/?env=il&lon={centroid.x}&lat={centroid.y}&zoom=6&segments={message}>");
-                }
-
-                if (reply.Length > 0)
-                    await ReplyAsync(reply.ToString());
-                else
-                    await ReplyAsync("Segment not found");
+                await RespondAsync("Incorrect segment ID format.", ephemeral: true);
+                return;
             }
-            else
-                await ReplyAsync("Incorrect segment ID format.");
+
+            await DeferAsync();
+            var reply = new StringBuilder();
+
+            var urlNA = "https://www.waze.com/Descartes/app/HouseNumbers?ids=" + id.Trim();
+            var result = await _findSvc.GetWebRequest(urlNA, "application/json; charset=utf-8");
+            var hnResult = JsonConvert.DeserializeObject<HouseNumberResult>(result);
+            if (hnResult.editAreas.objects.Count > 0)
+            {
+                var centroid = _findSvc.GetCentroid(hnResult.editAreas.objects[0].geometry.coordinates[0]);
+                reply.AppendLine($"<https://www.waze.com/en-US/editor/?env=usa&lon={centroid.x}&lat={centroid.y}&zoom=6&segments={id}>");
+            }
+
+            var urlROW = "https://www.waze.com/row-Descartes/app/HouseNumbers?ids=" + id.Trim();
+            result = await _findSvc.GetWebRequest(urlROW, "application/json; charset=utf-8");
+            hnResult = JsonConvert.DeserializeObject<HouseNumberResult>(result);
+            if (hnResult.editAreas.objects.Count > 0)
+            {
+                var centroid = _findSvc.GetCentroid(hnResult.editAreas.objects[0].geometry.coordinates[0]);
+                reply.AppendLine($"<https://www.waze.com/editor/?env=row&lon={centroid.x}&lat={centroid.y}&zoom=6&segments={id}>");
+            }
+
+            var urlIL = "https://www.waze.com/il-Descartes/app/HouseNumbers?ids=" + id.Trim();
+            result = await _findSvc.GetWebRequest(urlIL, "application/json; charset=utf-8");
+            hnResult = JsonConvert.DeserializeObject<HouseNumberResult>(result);
+            if (hnResult.editAreas.objects.Count > 0)
+            {
+                var centroid = _findSvc.GetCentroid(hnResult.editAreas.objects[0].geometry.coordinates[0]);
+                reply.AppendLine($"<https://www.waze.com/editor/?env=il&lon={centroid.x}&lat={centroid.y}&zoom=6&segments={id}>");
+            }
+
+            await FollowupAsync(reply.Length > 0 ? reply.ToString() : "Segment not found.");
         }
 
-        [Command("place")]
-        public async Task FindPlace([Remainder] string placeID = null)
+        [SlashCommand("place", "Find a Waze place by ID")]
+        public async Task FindPlace([Summary("id", "The place ID")] string placeId)
         {
-            if (placeID == null)
-                await ReplyAsync("Please provide a Place ID");
             Regex regURL = new Regex(@"^\d*\.\d*.\d*");
-            if (regURL.Matches(placeID).Count == 1)
+            if (regURL.Matches(placeId).Count != 1)
             {
-                PlaceResponse PlaceResult;
-                StringBuilder reply = new StringBuilder();
-                try
-                {
-                    string urlNA = "https://www.waze.com/SearchServer/mozi?max_distance_kms=&lon=-84.22637&lat=39.61097&format=PROTO_JSON_FULL&venue_id=" + placeID.Trim();
-                    var result = _findSvc.GetWebRequest(urlNA, "application/json; charset=utf-8").Result;
-                    PlaceResult = JsonConvert.DeserializeObject<PlaceResponse>(result);
-                    if (PlaceResult.venue != null)
-                    {
-                        GeoPoint centroid = new GeoPoint(PlaceResult.venue.location.x, PlaceResult.venue.location.y);
-                        reply.AppendLine($"<https://www.waze.com/en-US/editor/?env=usa&lon={centroid.x}&lat={centroid.y}&zoom=6&venues={placeID}>");
-                    }
-                }
-                catch(Exception ex)
-                {
-
-                }
-
-                try
-                {
-                    string urlROW = "https://www.waze.com/row-SearchServer/mozi?max_distance_kms=&lon=-84.22637&lat=39.61097&format=PROTO_JSON_FULL&venue_id=" + placeID.Trim();
-                    var result = _findSvc.GetWebRequest(urlROW, "application/json; charset=utf-8").Result;
-                    PlaceResult = JsonConvert.DeserializeObject<PlaceResponse>(result);
-                    if (PlaceResult.venue != null)
-                    {
-                        GeoPoint centroid = new GeoPoint(PlaceResult.venue.location.x, PlaceResult.venue.location.y);
-                        reply.AppendLine($"<https://www.waze.com/editor/?env=row&lon={centroid.x}&lat={centroid.y}&zoom=6&venues={placeID}>");
-                    }
-                }
-                catch(Exception ex)
-                {
-
-                }
-
-                try
-                {
-                    string urlIL = "https://www.waze.com/il-SearchServer/mozi?max_distance_kms=&lon=-84.22637&lat=39.61097&format=PROTO_JSON_FULL&venue_id=" + placeID.Trim();
-                    var result = _findSvc.GetWebRequest(urlIL, "application/json; charset=utf-8").Result;
-                    PlaceResult = JsonConvert.DeserializeObject<PlaceResponse>(result);
-                    if (PlaceResult.venue != null)
-                    {
-                        GeoPoint centroid = new GeoPoint(PlaceResult.venue.location.x, PlaceResult.venue.location.y);
-                        reply.AppendLine($"<https://www.waze.com/editor/?env=il&lon={centroid.x}&lat={centroid.y}&zoom=6&venues={placeID}>");
-                    }
-                }
-                catch(Exception ex)
-                {
-
-                }
-
-                if (reply.Length > 0)
-                    await ReplyAsync(reply.ToString());
-                else
-                    await ReplyAsync("Place not found");
+                await RespondAsync("Incorrect Place ID format.", ephemeral: true);
+                return;
             }
-            else
-                await ReplyAsync("Incorrect Place ID format.");
+
+            await DeferAsync();
+            var reply = new StringBuilder();
+
+            var urls = new[]
+            {
+                ("https://www.waze.com/SearchServer/mozi?max_distance_kms=&lon=-84.22637&lat=39.61097&format=PROTO_JSON_FULL&venue_id=" + placeId.Trim(), "usa"),
+                ("https://www.waze.com/row-SearchServer/mozi?max_distance_kms=&lon=-84.22637&lat=39.61097&format=PROTO_JSON_FULL&venue_id=" + placeId.Trim(), "row"),
+                ("https://www.waze.com/il-SearchServer/mozi?max_distance_kms=&lon=-84.22637&lat=39.61097&format=PROTO_JSON_FULL&venue_id=" + placeId.Trim(), "il")
+            };
+
+            foreach (var (url, env) in urls)
+            {
+                try
+                {
+                    var result = await _findSvc.GetWebRequest(url, "application/json; charset=utf-8");
+                    var placeResult = JsonConvert.DeserializeObject<PlaceResponse>(result);
+                    if (placeResult.venue != null)
+                    {
+                        var centroid = new GeoPoint(placeResult.venue.location.x, placeResult.venue.location.y);
+                        var editorBase = env == "usa" ? "https://www.waze.com/en-US/editor" : "https://www.waze.com/editor";
+                        reply.AppendLine($"<{editorBase}/?env={env}&lon={centroid.x}&lat={centroid.y}&zoom=6&venues={placeId}>");
+                    }
+                }
+                catch { }
+            }
+
+            await FollowupAsync(reply.Length > 0 ? reply.ToString() : "Place not found.");
         }
 
         #region Segment Helper Classes

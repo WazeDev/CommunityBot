@@ -1,15 +1,12 @@
-﻿using Discord.Commands;
-using System.Threading.Tasks;
+﻿using Discord.Interactions;
 using System;
-using System.Linq;
-using System.Collections.Generic;
-using System.Text;
+using System.Threading.Tasks;
 using WazeBotDiscord.DND;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("dnd")]
-    public class DNDModule : ModuleBase
+    [Group("dnd", "Do Not Disturb commands")]
+    public class DNDModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly DNDService _dndService;
 
@@ -18,73 +15,37 @@ namespace WazeBotDiscord.Modules
             _dndService = dndSvc;
         }
 
-        [Command]
+        [SlashCommand("status", "Check your current DND status")]
         public async Task GetDNDTime()
         {
             string result = await _dndService.GetDNDTime(Context.User.Id);
-            await ReplyAsync(result);
+            await RespondAsync(result, ephemeral: true);
         }
 
-        [Command]
-        public async Task TaskAddDNDTime(string dndTime)
+        [SlashCommand("set", "Enable DND for a number of hours")]
+        public async Task SetDNDTime([Summary("hours", "Number of hours to enable DND for")] double hours)
         {
-            double hours = 0;
-            if (dndTime.Length == 1)
+            if (hours <= 0)
             {
-                if (dndTime.ToLower() == "q")
-                    dndTime = "1";
-                else if (dndTime.ToLower() == "w")
-                    dndTime = "2";
-                else if (dndTime.ToLower() == "e")
-                    dndTime = "3";
-                else if (dndTime.ToLower() == "r")
-                    dndTime = "4";
-                else if (dndTime.ToLower() == "t")
-                    dndTime = "5";
-                else if (dndTime.ToLower() == "y")
-                    dndTime = "6";
-                else if (dndTime.ToLower() == "u")
-                    dndTime = "7";
-                else if (dndTime.ToLower() == "i")
-                    dndTime = "8";
-                else if (dndTime.ToLower() == "o")
-                    dndTime = "9";
-            }
-            try
-            {
-                hours = Convert.ToDouble(dndTime);
-                if(hours <= 0)
-                {
-                    await ReplyAsync("DND hours must be greater than zero.");
-                    return;
-                }
-            }
-            catch
-            {
-                await ReplyAsync("Incorrect parameters specified.");
+                await RespondAsync("DND hours must be greater than zero.", ephemeral: true);
                 return;
             }
 
-            if(await _dndService.AddDND(Context.User.Id, DateTime.Now.AddHours(hours)))
-            {
-                await ReplyAsync($"DND enabled for {hours} hours.");
-            }
+            if (await _dndService.AddDND(Context.User.Id, DateTime.Now.AddHours(hours)))
+                await RespondAsync($"DND enabled for {hours} hours.", ephemeral: true);
             else
-            {
-                await ReplyAsync($"DND time changed to {hours} hours.");
-            }
+                await RespondAsync($"DND time changed to {hours} hours.", ephemeral: true);
         }
 
-        [Command("disable"), Priority(9)]
-        [Alias("off")]
-        public async Task Remove([Remainder]string unused = null)
+        [SlashCommand("disable", "Disable DND")]
+        public async Task Remove()
         {
             var removed = await _dndService.RemoveDND(Context.User.Id);
 
             if (removed)
-                await ReplyAsync("DND disabled.");
+                await RespondAsync("DND disabled.", ephemeral: true);
             else
-                await ReplyAsync("DND was not enabled.");
+                await RespondAsync("DND was not enabled.", ephemeral: true);
         }
     }
 }

@@ -1,90 +1,58 @@
-﻿using AngleSharp.Html.Dom;
-using AngleSharp.Html.Parser;
-using Discord;
-using Microsoft.EntityFrameworkCore;
+﻿using Discord;
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Services;
+using Google.Apis.Sheets.v4;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
-using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace WazeBotDiscord.Abbreviation
 {
     public class AbbreviationService
     {
-        readonly HttpClient _client;
-        //List<SheetToSearch> _sheets;
+        readonly SheetsService _sheetsService;
+        const string SheetId = "1-K3YMyIgos-fidRtMbKHFpIRzlAQu9DGYFk7PoedwzY";
+        const string Range = "A:C"; // Columns A, B, C
+        readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        bool _initialized = false;
 
-        public AbbreviationService(HttpClient client)
+        public AbbreviationService()
         {
-            _client = client;
+            _sheetsService = new SheetsService(new BaseClientService.Initializer
+            {
+                ApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY"),
+                ApplicationName = "WazeBotDiscord"
+            });
         }
-
-        //public async Task InitAsync()
-        //{
-        //    using (var db = new WbContext())
-        //    {
-        //        _sheets = await db.SheetsToSearch.ToListAsync();
-        //    }
-        //}
 
         public async Task<AbbreviationResponse> SearchSheetAsync(ulong channelId, string origSearchString)
         {
             var searchString = origSearchString.ToLowerInvariant();
-                        var parser = new HtmlParser();
-            string sheetURL = $"https://docs.google.com/spreadsheets/d/1-K3YMyIgos-fidRtMbKHFpIRzlAQu9DGYFk7PoedwzY/pubhtml/sheet?gid=1231483217&single=true";
 
-            var resp = await _client.GetAsync(sheetURL);
+            var request = _sheetsService.Spreadsheets.Values.Get(SheetId, Range);
+            request.Key = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
+            var response = await request.ExecuteAsync();
+            var rows = response.Values;
 
-            if (!resp.IsSuccessStatusCode)
+            if (rows == null || rows.Count == 0)
                 return new AbbreviationResponse { message = "Spreadsheet is not configured correctly." };
 
-            var doc = await parser.ParseDocumentAsync(await resp.Content.ReadAsStringAsync());
-
-            var tblHeader = doc.QuerySelectorAll("table.waffle > tbody > tr:nth-child(3)");
-            var headerRowRaw = tblHeader.FirstOrDefault();
-            if (headerRowRaw == null)
-                return new AbbreviationResponse { message = "Spreadsheet is not configured correctly." };
-
-            var headerRow = (IHtmlTableRowElement)headerRowRaw;
-            var headerFields = headerRow.Cells
-                .Where(c => !string.IsNullOrWhiteSpace(c.TextContent))
-                .Select(c => c.TextContent)
+            // Skip header rows — first two rows are headers
+            var matches = rows.Skip(3)
+                .Where(row => row.Count >= 3
+                    && row.Any(cell => cell.ToString().ToLowerInvariant().Contains(searchString)))
                 .ToList();
 
-            var contentRows = doc.QuerySelectorAll("table.waffle > tbody > tr:not(:first-of-type)");
-            var matches = new List<List<string>>();
-
-            foreach (var thisRow in contentRows)
-            {
-                var row = (IHtmlTableRowElement)thisRow;
-                var match = false;
-
-                if (row.Cells[2].TextContent != "")
-                { 
-                    foreach (var cell in row.Cells)
-                    {
-                        if (cell.TextContent.ToLowerInvariant().Contains(searchString))
-                        {
-                            match = true;
-                            break;
-                        }
-                    }
-
-                    if (match)
-                        matches.Add(row.Cells.Select(c => c.TextContent).ToList());
-                }
-            }
-
-            return GenerateResult(headerFields, matches, origSearchString);
+            return GenerateResult(matches, origSearchString);
         }
 
-        AbbreviationResponse GenerateResult(List<string> headers, List<List<string>> matches, string searchString)
+        AbbreviationResponse GenerateResult(List<IList<object>> matches, string searchString)
         {
-            var result = new StringBuilder();
-            AbbreviationResponse searchResult = new AbbreviationResponse();
+            var searchResult = new AbbreviationResponse();
 
             var matchCount = matches.Count;
             if (matchCount == 0)
@@ -100,52 +68,29 @@ namespace WazeBotDiscord.Abbreviation
             else
                 searchResult.message = $"{matchCount} results found for `{searchString}`.\n";
 
-            List<string> fullNames = new List<string>();
-            List<string> mappedAs = new List<string>(); ;
+            var fullNames = new List<string>();
+            var mappedAs = new List<string>();
+
             for (var i = 0; i < matchCount; i++)
             {
-                //result.AppendLine("```");
-                fullNames.Add(matches[i][1]);
-                mappedAs.Add(matches[i][2]);
-                if (matchCount > 0 && i != matchCount - 1)
+                fullNames.Add(matches[i][0].ToString());
+                mappedAs.Add(matches[i][1].ToString());
+                if (i != matchCount - 1)
                 {
                     fullNames.Add(Environment.NewLine);
                     mappedAs.Add(Environment.NewLine);
                 }
-
-                //for (var j = 1; j < matches[i].Count; j++)
-                //{
-                //    if (string.IsNullOrWhiteSpace(matches[i][j]))
-                //        continue;
-
-                    //    result.Append(matches[i][j]);
-                    //    result.Append(" | ");
-                    //}
-                    //result.Remove(result.Length - 3, 3);
-                    //if (matchCount > 0 && i != matchCount - 1)
-                    //    result.AppendLine(Environment.NewLine);
-
-                    //result.AppendLine("```");
             }
-            
-                        
+
             var embed = new EmbedBuilder()
             {
                 Color = new Color(147, 196, 211)
             };
-            embed.AddField("Full name", String.Join("", fullNames.ToArray()));
-            embed.AddField("Mapped as", String.Join("", mappedAs.ToArray()));
+            embed.AddField("Full name", string.Join("", fullNames));
+            embed.AddField("Mapped as", string.Join("", mappedAs));
             searchResult.results = embed.Build();
-            //string resultString = result.ToString();
-            //Regex regURL = new Regex(@"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)");
-            //Match matchNA = regURL.Match(resultString);
-            //foreach (Match itemMatch in regURL.Matches(resultString))
-            //{
-            //    resultString = resultString.Replace(itemMatch.ToString(), "<" + itemMatch.ToString() + ">");
-            //}
 
             return searchResult;
         }
     }
 }
-

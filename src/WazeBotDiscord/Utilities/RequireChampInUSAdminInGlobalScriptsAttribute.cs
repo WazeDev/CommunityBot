@@ -1,16 +1,18 @@
-﻿using Discord.Commands;
+﻿using Discord;
+using Discord.Interactions;
 using Discord.WebSocket;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using WazeBotDiscord.Classes.Servers;
 using WazeBotDiscord.Classes.Roles;
+using WazeBotDiscord.Classes.Servers;
 
 namespace WazeBotDiscord.Utilities
 {
     public class RequireChampInUSAdminInGlobalScriptsAttribute : PreconditionAttribute
     {
-        public async override Task<PreconditionResult> CheckPermissionsAsync(ICommandContext context, CommandInfo command, IServiceProvider services)
+        public async override Task<PreconditionResult> CheckRequirementsAsync(
+             IInteractionContext context, ICommandInfo command, IServiceProvider services)
         {
             var appInfo = await context.Client.GetApplicationInfoAsync();
             if (appInfo.Owner.Id == context.User.Id)
@@ -22,10 +24,10 @@ namespace WazeBotDiscord.Utilities
                 var exists = Admin.Ids.TryGetValue(guild.Id, out var roleId);
                 var adminRole = guild.GetRole(roleId);
 
-                if (((SocketGuildUser)context.Message.Author).Roles.Contains(adminRole))
+                if (((SocketGuildUser)context.User).Roles.Contains(adminRole))
                     return PreconditionResult.FromSuccess();
 
-                return PreconditionResult.FromError($"{context.Message.Author.Mention}: " + "You must be an admin on this server to use that command.");
+                return PreconditionResult.FromError($"{context.User.Mention}: " + "You must be an admin on this server to use that command.");
             }
             else
             {
@@ -37,7 +39,7 @@ namespace WazeBotDiscord.Utilities
 
                 var champRole = guild.GetRole(roleId);
 
-                if (((SocketGuildUser)context.Message.Author).Hierarchy >= champRole.Position)
+                if (((SocketGuildUser)context.User).Hierarchy >= champRole.Position)
                     return PreconditionResult.FromSuccess();
 
 
@@ -47,12 +49,12 @@ namespace WazeBotDiscord.Utilities
 
                 champRole = guild.GetRole(roleId);
 
-                if (((SocketGuildUser)context.Message.Author).Hierarchy >= champRole.Position)
+                if (((SocketGuildUser)context.User).Hierarchy >= champRole.Position)
                     return PreconditionResult.FromSuccess();
 
 
 
-                return PreconditionResult.FromError($"{context.Message.Author.Mention}: " + "You must be a champ or above on this server to use that command.");
+                return PreconditionResult.FromError($"{context.User.Mention}: " + "You must be a champ or above on this server to use that command.");
             }
 
         }

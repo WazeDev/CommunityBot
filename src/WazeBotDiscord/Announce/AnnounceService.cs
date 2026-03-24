@@ -1,11 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+﻿using Discord;
 using Discord.WebSocket;
-using Discord;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace WazeBotDiscord.Announce
 {
@@ -13,19 +11,32 @@ namespace WazeBotDiscord.Announce
     {
         List<AnnounceChannel> _AnnounceChannels = new List<AnnounceChannel>();
         DiscordSocketClient _client;
+        readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        bool _initialized = false;
 
-        public async Task InitAnnounceServiceAsync(DiscordSocketClient client)
+        private async Task EnsureInitializedAsync()
         {
-            _client = client;
-            using (var db = new WbContext())
+            if (_initialized) return;
+
+            await _initLock.WaitAsync();
+            try
             {
-                //_AnnounceChannels = await db.AnnounceList.ToListAsync();
-                _AnnounceChannels = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(db.AnnounceList);
+                if (_initialized) return; // double check after acquiring lock
+                using (var db = new WbContext())
+                {
+                    _AnnounceChannels = await EntityFrameworkQueryableExtensions.ToListAsync(db.AnnounceList);
+                }
+                _initialized = true;
+            }
+            finally
+            {
+                _initLock.Release();
             }
         }
 
-        public List<AnnounceChannel> GetAnnounceChannels()
+        public async Task<List<AnnounceChannel>> GetAnnounceChannels()
         {
+            await EnsureInitializedAsync();
             return _AnnounceChannels;
         }
 

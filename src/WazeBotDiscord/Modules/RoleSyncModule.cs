@@ -1,5 +1,5 @@
 ﻿using Discord;
-using Discord.Commands;
+using Discord.Interactions;
 using Discord.WebSocket;
 using System.Threading.Tasks;
 using WazeBotDiscord.Classes.Roles;
@@ -7,172 +7,148 @@ using WazeBotDiscord.Utilities;
 
 namespace WazeBotDiscord.Modules
 {
-    public class RoleSyncModule : ModuleBase
+    public class RoleSyncModule : InteractionModuleBase<SocketInteractionContext>
     {
-        [Command("cm", RunMode = RunMode.Async)]
-        [Alias("countrymanager")]
+        [SlashCommand("cm", "Toggle Country Manager role for a user")]
         [RequireCmOrAbove]
         [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleCm(IUser user)
+        public async Task ToggleCm([Summary("user", "The user to toggle CM for")] IUser user)
         {
             if (IsSelf(user))
             {
-                await ReplyAsync("You can't change this role for yourself.");
+                await RespondAsync("You can't change this role for yourself.", ephemeral: true);
                 return;
             }
 
-            var msg = await ReplyAsync($"{user.Mention}: Just a moment...");
+            await DeferAsync(ephemeral: true);
 
-            //wait ReplyAsync("");
             SyncedRoleStatus result = SyncedRoleStatus.NotConfigured;
-            try { 
+            try
+            {
                 result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, CountryManager.Ids, Context);
-             }
-            catch {
-                await ReplyAsync("Error setting CM role on this server");
+            }
+            catch
+            {
+                await FollowupAsync("Error setting CM role on this server.");
+                return;
             }
 
             if (result == SyncedRoleStatus.Added)
             {
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, LargeAreaManager.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, AreaManager.Ids, Context);
-
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Added CM, removed LAM and AM (if applicable).");
+                await FollowupAsync($"{user.Mention}: Added CM, removed LAM and AM (if applicable).");
             }
             else if (result == SyncedRoleStatus.Removed)
-            {
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Removed CM.");
-            }
+                await FollowupAsync($"{user.Mention}: Removed CM.");
         }
 
-        [Command("sm", RunMode = RunMode.Async)]
-        [Alias("statemanager")]
+        [SlashCommand("sm", "Toggle State Manager role for a user")]
         [RequireSmOrAbove]
         [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleSm(IUser user)
+        public async Task ToggleSm([Summary("user", "The user to toggle SM for")] IUser user)
         {
             if (IsSelf(user))
             {
-                await ReplyAsync("You can't change this role for yourself.");
+                await RespondAsync("You can't change this role for yourself.", ephemeral: true);
                 return;
             }
 
-            var msg = await ReplyAsync($"{user.Mention}: Just a moment...");
-
-             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, StateManager.Ids, Context);
+            await DeferAsync(ephemeral: true);
+            var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, StateManager.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
             {
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, LargeAreaManager.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, AreaManager.Ids, Context);
-
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Added SM, removed LAM and AM (if applicable).");
+                await FollowupAsync($"{user.Mention}: Added SM, removed LAM and AM (if applicable).");
             }
             else if (result == SyncedRoleStatus.Removed)
-            {
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Removed SM.");
-            }
+                await FollowupAsync($"{user.Mention}: Removed SM.");
         }
-        
-        [Command("lam", RunMode = RunMode.Async)]
-        [Alias("largeareamanager")]
+
+        [SlashCommand("lam", "Toggle Large Area Manager role for a user")]
         [RequireSmOrAbove]
         [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleLam(IUser user)
+        public async Task ToggleLam([Summary("user", "The user to toggle LAM for")] IUser user)
         {
             if (IsSelf(user))
             {
-                await ReplyAsync("You can't change this role for yourself.");
+                await RespondAsync("You can't change this role for yourself.", ephemeral: true);
                 return;
             }
 
-            var msg = await ReplyAsync($"{user.Mention}: Just a moment...");
-
+            await DeferAsync(ephemeral: true);
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, LargeAreaManager.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
             {
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, StateManager.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, AreaManager.Ids, Context);
-
-                // some guilds have LAM and AM, some only have AM. have to do this to manage that.
                 await RoleSyncHelpers.AddSyncedRolesAsync((SocketGuildUser)user, LargeAreaManager.Ids, Context.Client);
-
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Added LAM, removed SM and AM (if applicable).");
+                await FollowupAsync($"{user.Mention}: Added LAM, removed SM and AM (if applicable).");
             }
             else if (result == SyncedRoleStatus.Removed)
-            {
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Removed LAM.");
-            }
+                await FollowupAsync($"{user.Mention}: Removed LAM.");
         }
 
-        [Command("am", RunMode = RunMode.Async)]
-        [Alias("areamanager")]
+        [SlashCommand("am", "Toggle Area Manager role for a user")]
         [RequireSmOrAbove]
         [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleAm(IUser user)
+        public async Task ToggleAm([Summary("user", "The user to toggle AM for")] IUser user)
         {
             if (IsSelf(user))
             {
-                await ReplyAsync("You can't change this role for yourself.");
+                await RespondAsync("You can't change this role for yourself.", ephemeral: true);
                 return;
             }
 
-            var msg = await ReplyAsync($"{user.Mention}: Just a moment...");
-
+            await DeferAsync(ephemeral: true);
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, AreaManager.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
             {
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, StateManager.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, LargeAreaManager.Ids, Context);
-
-                // some guilds have LAM and AM, some only have AM. have to do this to manage that.
                 await RoleSyncHelpers.AddSyncedRolesAsync((SocketGuildUser)user, AreaManager.Ids, Context.Client);
-
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Added AM, removed SM and LAM (if applicable).");
+                await FollowupAsync($"{user.Mention}: Added AM, removed SM and LAM (if applicable).");
             }
             else if (result == SyncedRoleStatus.Removed)
-            {
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Removed AM.");
-            }
+                await FollowupAsync($"{user.Mention}: Removed AM.");
         }
 
-        [Command("mentor", RunMode = RunMode.Async)]
+        [SlashCommand("mentor", "Toggle Mentor role for a user")]
         [RequireSmOrAbove]
         [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleMentor(IUser user)
+        public async Task ToggleMentor([Summary("user", "The user to toggle Mentor for")] IUser user)
         {
             if (IsSelf(user))
             {
-                await ReplyAsync("You can't change this role for yourself.");
+                await RespondAsync("You can't change this role for yourself.", ephemeral: true);
                 return;
             }
 
-            var msg = await ReplyAsync($"{user.Mention}: Just a moment...");
-
+            await DeferAsync(ephemeral: true);
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Mentor.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Added mentor.");
+                await FollowupAsync($"{user.Mention}: Added mentor.");
             else if (result == SyncedRoleStatus.Removed)
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Removed mentor.");
+                await FollowupAsync($"{user.Mention}: Removed mentor.");
         }
 
-        [Command("l6", RunMode = RunMode.Async)]
-        [Alias("level6", "r6", "rank6")]
+        [SlashCommand("l6", "Toggle Level 6 role for a user")]
         [RequireChampInNationalL6InGlobal]
         [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleL6(IUser user)
+        public async Task ToggleL6([Summary("user", "The user to toggle L6 for")] IUser user)
         {
             if (IsSelf(user))
             {
-                await ReplyAsync("You can't change this role for yourself.");
+                await RespondAsync("You can't change this role for yourself.", ephemeral: true);
                 return;
             }
 
-            var msg = await ReplyAsync($"{user.Mention}: Just a moment...");
-
+            await DeferAsync(ephemeral: true);
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level6.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -182,29 +158,24 @@ namespace WazeBotDiscord.Modules
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level3.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level2.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level1.Ids, Context);
-
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Added L6, removed other level roles.");
+                await FollowupAsync($"{user.Mention}: Added L6, removed other level roles.");
             }
             else if (result == SyncedRoleStatus.Removed)
-            {
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Removed L6.");
-            }
+                await FollowupAsync($"{user.Mention}: Removed L6.");
         }
 
-        [Command("l5", RunMode = RunMode.Async)]
-        [Alias("level5", "r5", "rank5")]
+        [SlashCommand("l5", "Toggle Level 5 role for a user")]
         [RequireSmOrAbove]
         [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleL5(IUser user)
+        public async Task ToggleL5([Summary("user", "The user to toggle L5 for")] IUser user)
         {
             if (IsSelf(user))
             {
-                await ReplyAsync("You can't change this role for yourself.");
+                await RespondAsync("You can't change this role for yourself.", ephemeral: true);
                 return;
             }
 
-            var msg = await ReplyAsync($"{user.Mention}: Just a moment...");
-
+            await DeferAsync(ephemeral: true);
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level5.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -214,29 +185,24 @@ namespace WazeBotDiscord.Modules
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level3.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level2.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level1.Ids, Context);
-
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Added L5, removed other level roles.");
+                await FollowupAsync($"{user.Mention}: Added L5, removed other level roles.");
             }
             else if (result == SyncedRoleStatus.Removed)
-            {
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Removed L5.");
-            }
+                await FollowupAsync($"{user.Mention}: Removed L5.");
         }
 
-        [Command("l4", RunMode = RunMode.Async)]
-        [Alias("level4", "r4", "rank4")]
+        [SlashCommand("l4", "Toggle Level 4 role for a user")]
         [RequireSmOrAbove]
         [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleL4(IUser user)
+        public async Task ToggleL4([Summary("user", "The user to toggle L4 for")] IUser user)
         {
             if (IsSelf(user))
             {
-                await ReplyAsync("You can't change this role for yourself.");
+                await RespondAsync("You can't change this role for yourself.", ephemeral: true);
                 return;
             }
 
-            var msg = await ReplyAsync($"{user.Mention}: Just a moment...");
-
+            await DeferAsync(ephemeral: true);
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level4.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -246,120 +212,111 @@ namespace WazeBotDiscord.Modules
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level3.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level2.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level1.Ids, Context);
-
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Added L4, removed other level roles.");
+                await FollowupAsync($"{user.Mention}: Added L4, removed other level roles.");
             }
             else if (result == SyncedRoleStatus.Removed)
+                await FollowupAsync($"{user.Mention}: Removed L4.");
+        }
+
+        [SlashCommand("l3", "Toggle Level 3 role for yourself or another user")]
+        [RequireBotPermission(GuildPermission.ManageRoles)]
+        public async Task ToggleL3([Summary("user", "The user to toggle L3 for (leave empty for yourself)")] IUser user = null)
+        {
+            user ??= Context.User;
+
+            if (user != Context.User)
             {
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Removed L4.");
+                var precondition = new RequireSmOrAboveAttribute();
+                var result = await precondition.CheckRequirementsAsync(Context, null, null);
+                if (!result.IsSuccess)
+                {
+                    await RespondAsync(result.ErrorReason, ephemeral: true);
+                    return;
+                }
             }
-        }
 
-        [Command("l3", RunMode = RunMode.Async)]
-        [Alias("level3", "r3", "rank3")]
-        [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleL3User()
-        {
-            await ToggleL3(Context.Message.Author);
-        }
+            await DeferAsync(ephemeral: true);
+            var toggleResult = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level3.Ids, Context);
 
-        [Command("l3", RunMode = RunMode.Async)]
-        [Alias("level3", "r3", "rank3")]
-        [RequireSmOrAbove]
-        [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleL3(IUser user)
-        {
-            var msg = await ReplyAsync($"{user.Mention}: Just a moment...");
-
-            var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level3.Ids, Context);
-
-            if (result == SyncedRoleStatus.Added)
+            if (toggleResult == SyncedRoleStatus.Added)
             {
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level6.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level5.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level4.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level2.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level1.Ids, Context);
-
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Added L3, removed other level roles.");
+                await FollowupAsync($"{user.Mention}: Added L3, removed other level roles.");
             }
-            else if (result == SyncedRoleStatus.Removed)
+            else if (toggleResult == SyncedRoleStatus.Removed)
+                await FollowupAsync($"{user.Mention}: Removed L3.");
+        }
+
+        [SlashCommand("l2", "Toggle Level 2 role for yourself or another user")]
+        [RequireBotPermission(GuildPermission.ManageRoles)]
+        public async Task ToggleL2([Summary("user", "The user to toggle L2 for (leave empty for yourself)")] IUser user = null)
+        {
+            user ??= Context.User;
+
+            if (user != Context.User)
             {
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Removed L3.");
+                var precondition = new RequireSmOrAboveAttribute();
+                var result = await precondition.CheckRequirementsAsync(Context, null, null);
+                if (!result.IsSuccess)
+                {
+                    await RespondAsync(result.ErrorReason, ephemeral: true);
+                    return;
+                }
             }
-        }
 
-        [Command("l2", RunMode = RunMode.Async)]
-        [Alias("level2", "r2", "rank2")]
-        [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleL2User()
-        {
-            await ToggleL2(Context.Message.Author);
-        }
+            await DeferAsync(ephemeral: true);
+            var toggleResult = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level2.Ids, Context);
 
-        [Command("l2", RunMode = RunMode.Async)]
-        [Alias("level2", "r2", "rank2")]
-        [RequireSmOrAbove]
-        [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleL2(IUser user)
-        {
-            var msg = await ReplyAsync($"{user.Mention}: Just a moment...");
-
-            var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level2.Ids, Context);
-
-            if (result == SyncedRoleStatus.Added)
+            if (toggleResult == SyncedRoleStatus.Added)
             {
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level6.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level5.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level4.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level3.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level1.Ids, Context);
-
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Added L2, removed other level roles.");
+                await FollowupAsync($"{user.Mention}: Added L2, removed other level roles.");
             }
-            else if (result == SyncedRoleStatus.Removed)
+            else if (toggleResult == SyncedRoleStatus.Removed)
+                await FollowupAsync($"{user.Mention}: Removed L2.");
+        }
+
+        [SlashCommand("l1", "Toggle Level 1 role for yourself or another user")]
+        [RequireBotPermission(GuildPermission.ManageRoles)]
+        public async Task ToggleL1([Summary("user", "The user to toggle L1 for (leave empty for yourself)")] IUser user = null)
+        {
+            user ??= Context.User;
+
+            if (user != Context.User)
             {
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Removed L2.");
+                var precondition = new RequireSmOrAboveAttribute();
+                var result = await precondition.CheckRequirementsAsync(Context, null, null);
+                if (!result.IsSuccess)
+                {
+                    await RespondAsync(result.ErrorReason, ephemeral: true);
+                    return;
+                }
             }
-        }
 
-        [Command("l1", RunMode = RunMode.Async)]
-        [Alias("level1", "r1", "rank1")]
-        [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleL1User()
-        {
-            await ToggleL1(Context.Message.Author);
-        }
+            await DeferAsync(ephemeral: true);
+            var toggleResult = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level1.Ids, Context);
 
-        [Command("l1", RunMode = RunMode.Async)]
-        [Alias("level1", "r1", "rank1")]
-        [RequireSmOrAbove]
-        [RequireBotPermission(GuildPermission.ManageRoles)]
-        public async Task ToggleL1(IUser user)
-        {
-            var msg = await ReplyAsync($"{user.Mention}: Just a moment...");
-
-            var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level1.Ids, Context);
-
-            if (result == SyncedRoleStatus.Added)
+            if (toggleResult == SyncedRoleStatus.Added)
             {
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level6.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level5.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level4.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level3.Ids, Context);
                 await RoleSyncHelpers.RemoveSyncedRolesAsync((SocketGuildUser)user, Level2.Ids, Context);
-
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Added L1, removed other level roles.");
+                await FollowupAsync($"{user.Mention}: Added L1, removed other level roles.");
             }
-            else if (result == SyncedRoleStatus.Removed)
-            {
-                await msg.ModifyAsync(m => m.Content = $"{user.Mention}: Removed L1.");
-            }
+            else if (toggleResult == SyncedRoleStatus.Removed)
+                await FollowupAsync($"{user.Mention}: Removed L1.");
         }
 
-        bool IsSelf(IUser target)
-        {
-            return Context.Message.Author == target;
-        }
+        bool IsSelf(IUser target) => Context.User.Id == target.Id;
     }
 }

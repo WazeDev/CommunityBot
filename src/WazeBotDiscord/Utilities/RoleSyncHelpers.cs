@@ -7,88 +7,87 @@ using System.Threading.Tasks;
 
 namespace WazeBotDiscord.Utilities
 {
-    public static class RoleSyncHelpers
-    {
-        public static async Task<SyncedRoleStatus> ToggleSyncedRolesAsync(
-            IUser userIn,
-            IReadOnlyDictionary<ulong, ulong> guildRoles,
-            ICommandContext context)
+        public static class RoleSyncHelpers
         {
-            var user = userIn as SocketGuildUser;
-            var exists = guildRoles.TryGetValue(context.Guild.Id, out var roleId);
-            if (!exists)
+            public static async Task<SyncedRoleStatus> ToggleSyncedRolesAsync(
+                IUser userIn,
+                IReadOnlyDictionary<ulong, ulong> guildRoles,
+                IInteractionContext context)
             {
-                await context.Channel.SendMessageAsync("This server is not configured for that command.");
-                return SyncedRoleStatus.NotConfigured;
-            }
-
-            var role = context.Guild.GetRole(roleId);
-
-            if (user.Roles.Contains(role))
-            {
-                await RemoveSyncedRolesAsync(user, guildRoles, context);
-                return SyncedRoleStatus.Removed;
-            }
-            else
-            {
-                await AddSyncedRolesAsync(user, guildRoles, context.Client);
-                return SyncedRoleStatus.Added;
-            }
-        }
-
-        public static async Task RemoveSyncedRolesAsync(
-            SocketGuildUser guildUser,
-            IReadOnlyDictionary<ulong, ulong> guildRole,
-            ICommandContext context)
-        {
-            foreach (var guild in await GetUserGuildsAsync(guildUser, context.Client))
-            {
-                ulong roleId = 0;
-                try
+                var user = userIn as SocketGuildUser;
+                var exists = guildRoles.TryGetValue(context.Guild.Id, out var roleId);
+                if (!exists)
                 {
-                    var exists = guildRole.TryGetValue(guild.Id, out roleId);
+                    await context.Channel.SendMessageAsync("This server is not configured for that command.");
+                    return SyncedRoleStatus.NotConfigured;
+                }
+
+                var role = context.Guild.GetRole(roleId);
+
+                if (user.Roles.Contains(role))
+                {
+                    await RemoveSyncedRolesAsync(user, guildRoles, context);
+                    return SyncedRoleStatus.Removed;
+                }
+                else
+                {
+                    await AddSyncedRolesAsync(user, guildRoles, context.Client);
+                    return SyncedRoleStatus.Added;
+                }
+            }
+
+            public static async Task RemoveSyncedRolesAsync(
+                SocketGuildUser guildUser,
+                IReadOnlyDictionary<ulong, ulong> guildRole,
+                IInteractionContext context)
+            {
+                foreach (var guild in await GetUserGuildsAsync(guildUser, context.Client))
+                {
+                    ulong roleId = 0;
+                    try
+                    {
+                        var exists = guildRole.TryGetValue(guild.Id, out roleId);
+                        if (!exists)
+                            continue;
+
+                        var role = guild.GetRole(roleId);
+                        var thisGuildUser = guild.GetUser(guildUser.Id);
+                        await thisGuildUser.RemoveRoleAsync(role);
+                    }
+                    catch
+                    {
+                        await context.Channel.SendMessageAsync($"Error removing {roleId} from {guild.Id} ({guild.Name})");
+                    }
+                }
+            }
+
+            public static async Task AddSyncedRolesAsync(
+                SocketGuildUser guildUser,
+                IReadOnlyDictionary<ulong, ulong> guildRole,
+                IDiscordClient client)
+            {
+                foreach (var guild in await GetUserGuildsAsync(guildUser, client))
+                {
+                    var exists = guildRole.TryGetValue(guild.Id, out var roleId);
                     if (!exists)
                         continue;
 
                     var role = guild.GetRole(roleId);
                     var thisGuildUser = guild.GetUser(guildUser.Id);
-
-                    await thisGuildUser.RemoveRoleAsync(role);
-                }
-                catch
-                {
-                    await context.Channel.SendMessageAsync($"Error removing {roleId} from {guild.Id} ({guild.Name})");
+                    await thisGuildUser.AddRoleAsync(role);
                 }
             }
-        }
 
-        public static async Task AddSyncedRolesAsync(
-            SocketGuildUser guildUser,
-            IReadOnlyDictionary<ulong, ulong> guildRole,
-            IDiscordClient client)
-        {
-            foreach (var guild in await GetUserGuildsAsync(guildUser, client))
+            public static async Task<IEnumerable<SocketGuild>> GetUserGuildsAsync(
+                SocketGuildUser guildUser,
+                IDiscordClient client)
             {
-                var exists = guildRole.TryGetValue(guild.Id, out var roleId);
-                if (!exists)
-                    continue;
-
-                var role = guild.GetRole(roleId);
-                var thisGuildUser = guild.GetUser(guildUser.Id);
-
-                await thisGuildUser.AddRoleAsync(role);
+                return (await client.GetGuildsAsync())
+                    .Select(g => g as SocketGuild)
+                    .Where(g => g.Users.Any(u => u.Id == guildUser.Id));
             }
         }
-
-        public static async Task<IEnumerable<SocketGuild>> GetUserGuildsAsync(
-            SocketGuildUser guildUser,
-            IDiscordClient client)
-        {
-            return (await client.GetGuildsAsync())
-                .Select(g => g as SocketGuild)
-                .Where(g => g.Users.Any(u => u.Id == guildUser.Id));
-        }
-    }
+    
 
     public enum SyncedRoleStatus
     {

@@ -1,15 +1,13 @@
-﻿using Discord.Commands;
+﻿using Discord.Interactions;
+using Discord.WebSocket;
 using System.Threading.Tasks;
-using System;
 using WazeBotDiscord.Announce;
 using WazeBotDiscord.Utilities;
-using Discord.WebSocket;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("announce")]
     [RequireChampInNationalAdminInGlobal]
-    public class AnnounceModule : ModuleBase
+    public class AnnounceModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly AnnounceService _announceSvc;
 
@@ -17,31 +15,26 @@ namespace WazeBotDiscord.Modules
         {
             _announceSvc = announceSvc;
         }
-        
-        [Command]
-        public async Task SendMessage([Remainder] string message = null)
-        {
-            if(message == null || message.Trim() == "")
-            {
-                await ReplyAsync("Please specify a message.");
-                return;
-            }
 
-            var _channels = _announceSvc.GetAnnounceChannels();
-            var _guilds = _announceSvc.GetBotGuilds();
-            SocketTextChannel announceChannel;
-            foreach(var c in _channels)
+        [SlashCommand("announce", "Send an announcement to all configured channels")]
+        public async Task SendMessage([Summary("message", "The message to announce")] string message)
+        {
+            await DeferAsync(ephemeral: true);
+
+            var channels = await _announceSvc.GetAnnounceChannels();
+            var guilds = _announceSvc.GetBotGuilds();
+
+            foreach (var c in channels)
             {
-                foreach (SocketGuild g in _guilds)
+                foreach (SocketGuild g in guilds)
                 {
-                    announceChannel = g.GetTextChannel(c.Channel);
-                    if(announceChannel != null)
+                    var announceChannel = g.GetTextChannel(c.Channel);
+                    if (announceChannel != null)
                         await announceChannel.SendMessageAsync(message);
                 }
-
-
-                
             }
+
+            await FollowupAsync("Announcement sent.", ephemeral: true);
         }
     }
 }

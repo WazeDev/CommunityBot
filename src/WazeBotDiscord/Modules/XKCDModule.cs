@@ -1,73 +1,72 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Discord;
+using Discord.Interactions;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Net;
-using System.Threading.Tasks;
-using Discord;
-using Discord.Commands;
-using WazeBotDiscord.XKCD;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using WazeBotDiscord.XKCD;
 
 namespace WazeBotDiscord.Modules
 {
-    public class XKCDModule : ModuleBase
+    public class XKCDModule : InteractionModuleBase<SocketInteractionContext>
     {
-        XKCDResult xkcdresult;
+        readonly HttpClient _httpClient;
 
-        [Command("xkcd")]
-        public async Task xkcd([Remainder]string comicNum = null)
+        public XKCDModule(IHttpClientFactory clientFactory)
         {
-            if(comicNum == null || new Regex(@"^\d+$").IsMatch(comicNum))
-            {
-                await GetComic(comicNum);
-                var embed = await Task.Run(() => CreateEmbed(xkcdresult));
-                await ReplyAsync("", embed: embed);
-            }
+            _httpClient = clientFactory.CreateClient("WazeBot");
+        }
+
+        [SlashCommand("xkcd", "Get a random or specific xkcd comic")]
+        public async Task GetXkcd([Summary("number", "The comic number (leave empty for random)")] int? comicNum = null)
+        {
+            await DeferAsync();
+            var result = await GetComicAsync(comicNum);
+            var embed = CreateEmbed(result);
+            await FollowupAsync(embed: embed);
+        }
+
+        async Task<XKCDResult> GetComicAsync(int? comicNum)
+        {
+            string url;
+            if (comicNum.HasValue)
+                url = $"https://xkcd.com/{comicNum}/info.0.json";
             else
             {
-                await ReplyAsync("Incorrect parameters provided. For a random comic use `!xkcd`, for a specific comic specify the comic number ex: `!xkcd 149`.");
+                // Get the latest comic number first, then pick a random one
+                var latestJson = await _httpClient.GetStringAsync("https://xkcd.com/info.0.json");
+                var latest = JObject.Parse(latestJson);
+                var latestNum = latest["num"].Value<int>();
+                var randomNum = new Random().Next(1, latestNum + 1);
+                url = $"https://xkcd.com/{randomNum}/info.0.json";
             }
-            
+
+            var json = await _httpClient.GetStringAsync(url);
+            var comic = JObject.Parse(json);
+
+            return new XKCDResult
+            {
+                Title = comic["title"].ToString(),
+                ImageURL = comic["img"].ToString(),
+                AltText = comic["alt"].ToString()
+            };
         }
 
-        async Task GetComic(string comicNum)
+        Embed CreateEmbed(XKCDResult result)
         {
-            xkcdresult = new XKCDResult();
-            string url = "https://c.xkcd.com/random/comic/"; //default to a random comic
-
-            if (!(comicNum == null)) {
-                url = "https://xkcd.com/" + comicNum;
-            }
-            HttpClient httpClient = new HttpClient();
-            string body = await httpClient.GetStringAsync(url);
-            
-            Regex regTitle = new Regex("id=\"ctitle\">(.*?)</div>");
-            Match matchTitle = regTitle.Match(body);
-            Regex regImageURL = new Regex("<div id=\"comic\">(\\s|\\n)<img src=\"(.*?)\"");
-            Match matchImageURL = regImageURL.Match(body);
-            Regex regTitleText = new Regex("title=\"(.*?)\" alt");
-            Match matchTitleText = regTitleText.Match(body);
-            xkcdresult.Title = matchTitle.Groups[1].ToString();
-            xkcdresult.ImageURL = matchImageURL.Groups[2].ToString().Replace("//", "https://");
-            xkcdresult.AltText = WebUtility.HtmlDecode(matchTitleText.Groups[1].ToString());
-        }
-
-        Embed CreateEmbed(XKCDResult xkcdresult)
-        {
-            var embed = new EmbedBuilder()
+            return new EmbedBuilder()
             {
                 Color = new Color(147, 196, 211),
-                Title = "xkcd: " + xkcdresult.Title,
-                Url = $"http://www.xkcd.com",
-                ImageUrl = xkcdresult.ImageURL,
-
+                Title = "xkcd: " + result.Title,
+                Url = "http://www.xkcd.com",
+                ImageUrl = result.ImageURL,
                 Footer = new EmbedFooterBuilder
                 {
-                    Text = xkcdresult.AltText
+                    Text = result.AltText
                 }
-            };
-
-            return embed.Build();
+            }.Build();
         }
     }
 }
