@@ -13,17 +13,22 @@ namespace WazeBotDiscord.Keywords
     {
         public static async Task HandleKeywordAsync(SocketMessage msg, KeywordService service, DiscordSocketClient client, DND.DNDService _dndService)
         {
+            // Ignore system messages, bot messages and DMs
+            if (msg is not SocketUserMessage)
+                return;
             if (msg.Author.Id == client.CurrentUser.Id || msg.Channel is SocketDMChannel)
                 return;
 
             var channel = msg.Channel as SocketTextChannel;
+            if (channel == null)
+                return;
+
             RegexOptions regOptions = RegexOptions.Compiled | RegexOptions.IgnoreCase;
             var rtcRegEx = new Regex(@"r\s+t\s+c", regOptions);
-
-            if (rtcRegEx.IsMatch(msg.Content) && (msg.Channel.Id == 300493945731940373 || ((SocketGuildChannel)msg.Channel).Guild.Id == 359327158944137227)) //SM chat or test server
+            if (rtcRegEx.IsMatch(msg.Content) && (msg.Channel.Id == 300493945731940373 || ((SocketGuildChannel)msg.Channel).Guild.Id == 359327158944137227))
             {
                 var myChannel = client.GetChannel(msg.Channel.Id) as IMessageChannel;
-                string[] rtcReplies =  { "I think you mean 'RTC'.", "Are you trying to say 'RTC'?", "It seems you are trying to say 'RTC' but your spacebar is interfering."};
+                string[] rtcReplies = { "I think you mean 'RTC'.", "Are you trying to say 'RTC'?", "It seems you are trying to say 'RTC' but your spacebar is interfering." };
                 Random rnd = new Random();
                 int num = rnd.Next(0, rtcReplies.Length);
                 await myChannel.SendMessageAsync(rtcReplies[num], false);
@@ -35,7 +40,7 @@ namespace WazeBotDiscord.Keywords
                     || !channel.Users.Any(u => u.Id == m.UserId))
                     continue;
 
-                DNDListItem dndItem = await _dndService.GetExistingDND(m.UserId);
+                DNDListItem dndItem = await _dndService.GetExistingDND(m.UserId); // use async version
                 if (dndItem != null)
                 {
                     if (dndItem.EndTime > DateTime.Now)

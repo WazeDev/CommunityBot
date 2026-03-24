@@ -14,6 +14,8 @@ namespace WazeBotDiscord.ChannelSync
     {
         public static async Task HandleChannelSyncAsync(SocketMessage msg, ChannelSyncService service, DiscordSocketClient client)
         {
+            if (msg is not SocketUserMessage)
+                return;
             if (msg.Author.Id == client.CurrentUser.Id) //don't sync bot messages
                 return;
 
