@@ -38,6 +38,12 @@ namespace WazeBotDiscord.Modules
             await FollowupAsync("Announcement sent.", ephemeral: true);
         }
 
+        [SlashCommand("announce", "Send an announcement to all configured channels")]
+        public async Task SendMessage()
+        {
+            await RespondWithModalAsync<AnnounceModal>("announce_modal");
+        }
+
         //[SlashCommand("announce", "Send an announcement to all configured channels")]
         //public async Task SendMessage([Summary("message", "The message to announce")] string message)
         //{
