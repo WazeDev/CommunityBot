@@ -41,7 +41,8 @@ namespace WazeBotDiscord.Wikisearch
             //        url = $"https://www.waze.com/discuss/search.json?q={Uri.EscapeDataString(searchPhrase)}&search_type=categories_tags";
             //        break;
             //    default:
-                    url = $"https://www.waze.com/discuss/search.json?q={Uri.EscapeDataString(searchPhrase)} #wazeopedia:usa-wazeopedia";
+            var query = Uri.EscapeDataString(searchPhrase + " #wazeopedia:usa-wazeopedia");
+            url = $"https://www.waze.com/discuss/search.json?q={query}";
             //        break;
             //}
 

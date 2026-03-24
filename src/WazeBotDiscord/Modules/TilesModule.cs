@@ -39,11 +39,11 @@ namespace WazeBotDiscord.Modules
             return new TilesResult
             {
                 NATileDate = "NA: " + naTitle,
-                NAUpdatePerformed = $"*(performed: {naPublished:MMM d, yyyy HH:mm} UTC)*",
+                NAUpdatePerformed = $"*(performed: {naPublished:MMM d, yyyy HH:mm} UTC | <t:{((DateTimeOffset)naPublished):R}>)*",
                 INTLTileDate = "INTL: " + intlTitle,
-                INTLUpdatePerformed = $"*(performed: {intlPublished:MMM d, yyyy HH:mm} UTC)*",
+                INTLUpdatePerformed = $"*(performed: {intlPublished:MMM d, yyyy HH:mm} UTC | <t:{((DateTimeOffset)intlPublished).ToUnixTimeSeconds()}:R>)*",
                 ILTileDate = "IL: " + ilTitle,
-                ILUpdatePerformed = $"*(performed: {ilPublished:MMM d, yyyy HH:mm} UTC)*"
+                ILUpdatePerformed = $"*(performed: {ilPublished:MMM d, yyyy HH:mm} UTC | <t:{((DateTimeOffset)ilPublished).ToUnixTimeSeconds()}:R>)*",
             };
         }
 
