@@ -35,7 +35,7 @@ namespace WazeBotDiscord.Keywords
                     || !channel.Users.Any(u => u.Id == m.UserId))
                     continue;
 
-                DNDListItem dndItem = _dndService.GetExistingDND(m.UserId);
+                DNDListItem dndItem = await _dndService.GetExistingDND(m.UserId);
                 if (dndItem != null)
                 {
                     if (dndItem.EndTime > DateTime.Now)

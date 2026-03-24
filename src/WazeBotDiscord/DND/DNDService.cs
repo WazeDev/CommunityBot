@@ -67,7 +67,7 @@ namespace WazeBotDiscord.DND
         public async Task<bool> AddDND(ulong userID, DateTime endTime)
         {
             await EnsureInitializedAsync();
-            var existing = GetExistingDND(userID);
+            var existing = await GetExistingDND(userID);
             if (existing == null)
             {
                 var dbSheet = new DNDListItem
@@ -101,7 +101,7 @@ namespace WazeBotDiscord.DND
         public async Task<bool> RemoveDND(ulong userID)
         {
             await EnsureInitializedAsync();
-            var existing = GetExistingDND(userID);
+            var existing = await GetExistingDND(userID);
             if (existing == null)
                 return false;
 
@@ -116,8 +116,9 @@ namespace WazeBotDiscord.DND
             return true;
         }
 
-        public DNDListItem GetExistingDND(ulong userID)
+        public async Task<DNDListItem> GetExistingDND(ulong userID)
         {
+            await EnsureInitializedAsync();
             return _dnds.Find(r => r.UserId == userID);
         }
     }
