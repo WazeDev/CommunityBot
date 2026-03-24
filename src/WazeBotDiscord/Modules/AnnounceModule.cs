@@ -1,6 +1,7 @@
-﻿using Discord.Interactions;
-using Discord.WebSocket;
+﻿using System;
 using System.Threading.Tasks;
+using Discord.Interactions;
+using Discord.WebSocket;
 using WazeBotDiscord.Announce;
 using WazeBotDiscord.Utilities;
 
@@ -21,9 +22,13 @@ namespace WazeBotDiscord.Modules
         public async Task HandleAnnounceModal(AnnounceModal modal)
         {
             await DeferAsync(ephemeral: true);
+            Console.WriteLine("HandleAnnounceModal fired");
 
             var channels = await _announceSvc.GetAnnounceChannels();
+            Console.WriteLine($"Got {channels.Count} channels");
+
             var guilds = _announceSvc.GetBotGuilds();
+            Console.WriteLine($"Got {guilds.Count} guilds");
 
             foreach (var c in channels)
             {
@@ -31,11 +36,16 @@ namespace WazeBotDiscord.Modules
                 {
                     var announceChannel = g.GetTextChannel(c.Channel);
                     if (announceChannel != null)
+                    {
+
+                        Console.WriteLine($"Sending to {g.Name} #{announceChannel.Name}");
                         await announceChannel.SendMessageAsync(modal.Message);
+                    }
                 }
             }
 
             await FollowupAsync("Announcement sent.", ephemeral: true);
+            Console.WriteLine("HandleAnnounceModal complete");
         }
 
         [SlashCommand("announce", "Send an announcement to all configured channels")]
