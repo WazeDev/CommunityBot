@@ -14,6 +14,11 @@ namespace WazeBotDiscord.Announce
         readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
         bool _initialized = false;
 
+        public AnnounceService(DiscordSocketClient client)
+        {
+            _client = client;
+        }
+
         private async Task EnsureInitializedAsync()
         {
             if (_initialized) return;
