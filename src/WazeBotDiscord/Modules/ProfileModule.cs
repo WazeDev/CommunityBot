@@ -11,8 +11,8 @@ namespace WazeBotDiscord.Modules
     {
         const string editorProfileBase = "https://www.waze.com/user/editor/";
         const string forumProfileBase = "https://www.waze.com/discuss/u/";
-        const string wikiProfileBase = "https://wazeopedia.waze.com/wiki/USA/User:";
         const string discussProfileBase = "https://www.waze.com/discuss/g?username=";
+        const string discordProfileBase = "https://discord.com/users/";
 
         [SlashCommand("profile", "Look up Waze profiles for an editor")]
         public async Task GetProfile([Summary("username", "The Waze editor username")] string editorName)
@@ -21,16 +21,31 @@ namespace WazeBotDiscord.Modules
 
             var editorProfile = editorProfileBase + editorName;
             var forumProfile = forumProfileBase + editorName + "/summary"; //await CheckProfile(forumProfileBase + editorName + "/summary", "forum");
-            var wikiProfile = await CheckProfile(wikiProfileBase + editorName, "wiki");
             var discussProfile = await CheckProfile(discussProfileBase + editorName, "Discuss");
+            var discordProfile = "";
+            string avatarURL = "";
 
+            if (Context.Guild != null)
+            {
+                var users = await Context.Guild.GetUsersAsync().FlattenAsync();
+                foreach (var u in users)
+                {
+                    if (u.Username.ToLower().StartsWith(editorName.ToLower()))
+                    {
+                        avatarURL = u.GetAvatarUrl();
+                        discordProfile = discordProfileBase + u.Id;
+                        break;
+                    }
+                }
+            }
             var pr = new ProfileResult
             {
                 EditorName = editorName,
                 EditorProfile = $"<{editorProfile}>",
                 ForumProfile = forumProfile.StartsWith("http") ? $"<{forumProfile}>" : forumProfile,
-                WikiProfile = wikiProfile.StartsWith("http") ? $"<{wikiProfile}>" : wikiProfile,
-                DiscussProfile = discussProfile.StartsWith("http") ? $"<{discussProfile}>" : discussProfile
+                DiscussProfile = discussProfile.StartsWith("http") ? $"<{discussProfile}>" : discussProfile,
+                DiscordProfile = discordProfile.StartsWith("http") ? $"<{discordProfile}>" : discordProfile,
+                AvatarURL = avatarURL
             };
 
             var embed = await CreateEmbedAsync(pr);
@@ -57,21 +72,6 @@ namespace WazeBotDiscord.Modules
 
         async Task<Embed> CreateEmbedAsync(ProfileResult item)
         {
-            string avatarURL = "";
-
-            if (Context.Guild != null)
-            {
-                var users = await Context.Guild.GetUsersAsync().FlattenAsync();
-                foreach (var u in users)
-                {
-                    if (u.Username.ToLower().StartsWith(item.EditorName.ToLower()))
-                    {
-                        avatarURL = u.GetAvatarUrl();
-                        break;
-                    }
-                }
-            }
-
             var sr = new StringBuilder();
             sr.AppendLine(item.EditorProfile.Contains("waze.com")
                 ? $"[Editor Profile]({item.EditorProfile})"
@@ -82,16 +82,16 @@ namespace WazeBotDiscord.Modules
             sr.AppendLine(item.DiscussProfile.Contains("waze.com")
                 ? $"[Discuss Group Profile]({item.DiscussProfile})"
                 : item.DiscussProfile);
-            sr.AppendLine(item.WikiProfile.Contains("waze.com")
-                ? $"[Wiki Profile]({item.WikiProfile})"
-                : item.WikiProfile);
+            sr.AppendLine(item.DiscordProfile.Contains("discord.com")
+                ? $"[Discord Profile]({item.DiscordProfile})"
+                : item.DiscordProfile);
 
             return new EmbedBuilder()
             {
                 Color = new Color(147, 196, 211),
                 Title = "Profiles for " + item.EditorName,
                 Description = sr.ToString(),
-                ThumbnailUrl = avatarURL
+                ThumbnailUrl = item.AvatarURL
             }.Build();
         }
     }

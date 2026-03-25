@@ -10,10 +10,11 @@ namespace WazeBotDiscord.Profile
 
         public string ForumProfile { get; set; }
 
-        public string WikiProfile { get; set; }
-
         public string DiscussProfile { get; set; }
 
         public string EditorName { get; set; }
+
+        public string AvatarURL { get; set; }
+        public string DiscordProfile { get; set; }
     }
 }
