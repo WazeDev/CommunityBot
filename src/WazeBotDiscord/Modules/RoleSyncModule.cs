@@ -20,7 +20,7 @@ namespace WazeBotDiscord.Modules
                 return;
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
 
             SyncedRoleStatus result = SyncedRoleStatus.NotConfigured;
             try
@@ -54,7 +54,7 @@ namespace WazeBotDiscord.Modules
                 return;
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, StateManager.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -78,7 +78,7 @@ namespace WazeBotDiscord.Modules
                 return;
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, LargeAreaManager.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -103,7 +103,7 @@ namespace WazeBotDiscord.Modules
                 return;
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, AreaManager.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -128,7 +128,7 @@ namespace WazeBotDiscord.Modules
                 return;
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Mentor.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -148,7 +148,7 @@ namespace WazeBotDiscord.Modules
                 return;
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level6.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -175,7 +175,7 @@ namespace WazeBotDiscord.Modules
                 return;
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level5.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -202,7 +202,7 @@ namespace WazeBotDiscord.Modules
                 return;
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var result = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level4.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -235,7 +235,7 @@ namespace WazeBotDiscord.Modules
                 }
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var toggleResult = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level3.Ids, Context);
 
             if (toggleResult == SyncedRoleStatus.Added)
@@ -268,7 +268,7 @@ namespace WazeBotDiscord.Modules
                 }
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var toggleResult = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level2.Ids, Context);
 
             if (toggleResult == SyncedRoleStatus.Added)
@@ -301,7 +301,7 @@ namespace WazeBotDiscord.Modules
                 }
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var toggleResult = await RoleSyncHelpers.ToggleSyncedRolesAsync(user, Level1.Ids, Context);
 
             if (toggleResult == SyncedRoleStatus.Added)

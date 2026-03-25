@@ -13,7 +13,7 @@ namespace WazeBotDiscord.Modules
         [RequireBotPermission(GuildPermission.ManageRoles)]
         public async Task ToggleWorldCup()
         {
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var result = await RoleAssignmentHelper.ToggleRoleAsync(Context.User, WorldCup.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -33,7 +33,7 @@ namespace WazeBotDiscord.Modules
                 return;
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var result = await RoleAssignmentHelper.ToggleRoleAsync(user, iosbeta.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -53,7 +53,7 @@ namespace WazeBotDiscord.Modules
                 return;
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var result = await RoleAssignmentHelper.ToggleRoleAsync(user, WMEBeta.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
@@ -73,7 +73,7 @@ namespace WazeBotDiscord.Modules
                 return;
             }
 
-            await DeferAsync(ephemeral: true);
+            await DeferAsync();
             var result = await RoleAssignmentHelper.ToggleRoleAsync(user, AndroidBeta.Ids, Context);
 
             if (result == SyncedRoleStatus.Added)
