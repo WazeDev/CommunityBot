@@ -10,9 +10,9 @@ namespace WazeBotDiscord.Modules
     public class ProfileModule : InteractionModuleBase<SocketInteractionContext>
     {
         const string editorProfileBase = "https://www.waze.com/user/editor/";
-        const string forumProfileBase = "https://www.waze.com/forum/memberlist.php?mode=viewprofile&un=";
+        const string forumProfileBase = "https://www.waze.com/discuss/u/";
         const string wikiProfileBase = "https://wazeopedia.waze.com/wiki/USA/User:";
-        const string discussProfileBase = "https://www.waze.com/discuss/u/";
+        const string discussProfileBase = "https://www.waze.com/discuss/g?username=";
 
         [SlashCommand("profile", "Look up Waze profiles for an editor")]
         public async Task GetProfile([Summary("username", "The Waze editor username")] string editorName)
@@ -20,9 +20,9 @@ namespace WazeBotDiscord.Modules
             await DeferAsync();
 
             var editorProfile = editorProfileBase + editorName;
-            var forumProfile = await CheckProfile(forumProfileBase + editorName, "forum");
+            var forumProfile = forumProfileBase + editorName + "/summary"; //await CheckProfile(forumProfileBase + editorName + "/summary", "forum");
             var wikiProfile = await CheckProfile(wikiProfileBase + editorName, "wiki");
-            var discussProfile = await CheckProfile(discussProfileBase + editorName + "/summary", "Discuss");
+            var discussProfile = await CheckProfile(discussProfileBase + editorName, "Discuss");
 
             var pr = new ProfileResult
             {
@@ -77,10 +77,10 @@ namespace WazeBotDiscord.Modules
                 ? $"[Editor Profile]({item.EditorProfile})"
                 : item.EditorProfile);
             sr.AppendLine(item.ForumProfile.Contains("waze.com")
-                ? $"[Forum Profile]({item.ForumProfile})"
+                ? $"[Discuss User Profile]({item.ForumProfile})"
                 : item.ForumProfile);
             sr.AppendLine(item.DiscussProfile.Contains("waze.com")
-                ? $"[Discuss Profile]({item.DiscussProfile})"
+                ? $"[Discuss Group Profile]({item.DiscussProfile})"
                 : item.DiscussProfile);
             sr.AppendLine(item.WikiProfile.Contains("waze.com")
                 ? $"[Wiki Profile]({item.WikiProfile})"
