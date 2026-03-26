@@ -1,12 +1,12 @@
 using Discord;
-using Discord.Commands;
+using Discord.Interactions;
 using System.Threading.Tasks;
 using WazeBotDiscord.Glossary;
 
 namespace WazeBotDiscord.Modules
 {
-    [Group("glossary")]
-    public class GlossaryModule : ModuleBase
+    [Group("glossary", "Waze glossary commands")]
+    public class GlossaryModule : InteractionModuleBase<SocketInteractionContext>
     {
         readonly GlossaryService _glossarySvc;
 
@@ -15,47 +15,40 @@ namespace WazeBotDiscord.Modules
             _glossarySvc = glossarySvc;
         }
 
-        [Command]
+        [SlashCommand("help", "Get help with the glossary command")]
         public async Task Help()
         {
-            await ReplyAsync("Use `!glossary term` to search the glossary for that term. Search terms must currently match exactly.\nThe glossary is located at: <https://wazeopedia.waze.com/wiki/USA/Glossary>");
+            await RespondAsync("Use `/glossary search` to search the glossary for a term. Search terms must currently match exactly.\nThe glossary is located at: <https://www.waze.com/discuss/t/glossary/377948>", ephemeral: true);
         }
 
-        [Command]
-        public async Task Search([Remainder]string term)
+        [SlashCommand("search", "Search the Waze glossary for a term")]
+        public async Task Search([Summary("term", "The term to search for")] string term)
         {
+            await DeferAsync();
             var item = await _glossarySvc.GetGlossaryItem(term.ToLowerInvariant());
             if (item == null)
             {
-                await ReplyAsync($"No match for {term}.");
+                await FollowupAsync($"No match for `{term}`.");
                 return;
             }
-
             var embed = CreateEmbed(item);
-            await ReplyAsync("", embed: embed);
+            await FollowupAsync(embed: embed);
         }
 
         Embed CreateEmbed(GlossaryItem item)
         {
-            string urlID;
-            if (item.Ids.Count > 0)
-                urlID = item.Ids[0];
-            else
-                urlID = item.Term;
-            var embed = new EmbedBuilder()
+            var urlID = item.Ids.Count > 0 ? item.Ids[0] : item.Term;
+            return new EmbedBuilder()
             {
                 Color = new Color(147, 196, 211),
                 Title = item.Term,
-                Url = $"https://wazeopedia.waze.com/wiki/USA/Glossary#urlID",
+                Url = $"https://www.waze.com/discuss/t/glossary/377948#{urlID}",
                 Description = item.Description,
-
                 Footer = new EmbedFooterBuilder
                 {
-                    Text = $"Last updated on {item.ModifiedAt.Date.ToString("yyyy-MM-dd")}"
+                    Text = $"Last updated on {item.ModifiedAt.Date:yyyy-MM-dd}"
                 }
-            };
-
-            return embed.Build();
+            }.Build();
         }
     }
 }

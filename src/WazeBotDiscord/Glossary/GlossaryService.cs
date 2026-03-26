@@ -27,7 +27,7 @@ namespace WazeBotDiscord.Glossary
             try
             {
                 if (_initialized) return; // double check after acquiring lock
-                //await UpdateGlossaryItemsAsync();
+                await UpdateGlossaryItemsAsync();
                 _initialized = true;
             }
             finally
@@ -57,37 +57,54 @@ namespace WazeBotDiscord.Glossary
             var parser = new HtmlParser();
             var body = await _httpClient.GetStringAsync("https://www.waze.com/discuss/t/glossary/377948");
             var doc = await parser.ParseDocumentAsync(body);
-
-            var tblRows = doc.QuerySelectorAll("tr");
-
+            var tblRows = doc.QuerySelectorAll("table tr");
             _items.Clear();
 
             foreach (var thisRow in tblRows)
             {
-                var row = (IHtmlTableRowElement)thisRow;
-                if (row.Cells.Length > 2)
+                var row = thisRow as IHtmlTableRowElement;
+                if (row == null || row.Cells.Length < 4)
+                    continue;
+
+                // Skip header row
+                var firstCell = row.Cells[0].TextContent.Trim();
+                if (firstCell == "Glossary Term" || string.IsNullOrEmpty(firstCell))
+                    continue;
+
+                try
                 {
-                    var dtString = row.Cells[3].TextContent.Trim();
-                    dtString = dtString.Split(null)[0];
-
-                    var dt = DateTime.ParseExact(dtString, "yyyy-MM-dd", CultureInfo.InvariantCulture);
-                    DateTime.SpecifyKind(dt, DateTimeKind.Utc);
-
+                    var term = firstCell;
                     var alternates = row.Cells[1].TextContent.Trim();
                     if (string.IsNullOrEmpty(alternates) || alternates == "~")
                         alternates = "_(none)_";
 
-                    var term = row.Cells[0].Children.First(c => c.TagName == "B").TextContent.Trim();
-                    var ids = row.Cells[0].Children.Where(c => c.TagName == "SPAN").Select(c => c.Id.Trim());
-                    row.Cells[2].InnerHtml = row.Cells[2].InnerHtml.Replace("<p>", "\n").Replace("</p>", "").Replace("<br>", "\n");
+                    var description = row.Cells[2].TextContent.Trim();
+
+                    var dtString = row.Cells[3].TextContent.Trim();
+                    dtString = dtString.Split('\n').Last(s => !string.IsNullOrWhiteSpace(s)).Trim();
+                    // Extract just the date portion - dates are in format "yyyy-MM-dd"
+                    var dateMatch = System.Text.RegularExpressions.Regex.Match(dtString, @"\d{4}-\d{2}-\d{2}");
+                    if (!dateMatch.Success)
+                        continue;
+
+                    var dt = DateTime.ParseExact(dateMatch.Value, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+                    // Build IDs from the term for anchor linking
+                    var ids = new List<string> { term.Replace(" ", "_") };
+
                     _items.Add(new GlossaryItem
                     {
-                        Ids = ids.ToList(),
+                        Ids = ids,
                         Term = term,
                         Alternates = alternates,
-                        Description = row.Cells[2].TextContent.Trim(),
+                        Description = description,
                         ModifiedAt = dt
                     });
+                }
+                catch
+                {
+                    // Skip malformed rows
+                    continue;
                 }
             }
         }
