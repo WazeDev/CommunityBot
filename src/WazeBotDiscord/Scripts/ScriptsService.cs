@@ -43,10 +43,19 @@ namespace WazeBotDiscord.Scripts
                 if (rows == null || rows.Count == 0)
                     return "Spreadsheet is not configured correctly.";
 
-                var headers = rows[0].Select(h => h.ToString()).ToList();
+                //Sheets api only returns filled columns, so we need to pad out the missing columns so we can just loop through and read each, even if it's empty
+                var headerCount = rows[0].Count;
+                var paddedRows = rows.Select(row =>
+                {
+                    var padded = row.ToList();
+                    while (padded.Count < headerCount)
+                        padded.Add("");
+                    return (IList<object>)padded;
+                }).ToList();
+
                 var matches = new List<IList<object>>();
 
-                foreach (var row in rows.Skip(1))
+                foreach (var row in paddedRows.Skip(1))
                 {
                     var restrictedGuildsStr = row.Count > 6 ? row[6].ToString() : "";
                     var restrictedGuilds = restrictedGuildsStr.Split(",");
@@ -69,7 +78,7 @@ namespace WazeBotDiscord.Scripts
                     }
                 }
 
-                return GenerateResult(headers, matches, origSearchString);
+                return GenerateResult(matches, origSearchString);
             }
             catch (Exception ex)
             {
@@ -77,7 +86,7 @@ namespace WazeBotDiscord.Scripts
             }
         }
 
-        string GenerateResult(List<string> headers, List<IList<object>> matches, string searchString)
+        string GenerateResult(List<IList<object>> matches, string searchString)
         {
             var result = new StringBuilder();
 
@@ -94,7 +103,8 @@ namespace WazeBotDiscord.Scripts
 
             for (var i = 0; i < matchCount; i++)
             {
-                for (var j = 0; j < matches[i].Count - 2; j++)
+                //We want to return the first 4 columns of the sheet - script name, version, author, install link and forum/discuss link
+                for (var j = 0; j < 5; j++)
                 {
                     if (string.IsNullOrWhiteSpace(matches[i][j].ToString()))
                         continue;
