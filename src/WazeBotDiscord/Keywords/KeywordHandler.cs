@@ -36,6 +36,8 @@ namespace WazeBotDiscord.Keywords
 
             foreach (var m in await service.CheckForKeywordAsync(msg.Content, msg.Author.Id, channel.Guild.Id, channel.Id))
             {
+                //If the message is from the user that sent it, don't alert for keywords
+                //If the user is not in the channel, don't alert for keywords
                 if (msg.Author.Id == m.UserId
                     || !channel.Users.Any(u => u.Id == m.UserId))
                     continue;
@@ -50,8 +52,8 @@ namespace WazeBotDiscord.Keywords
                 }
 
                 string nickname = null;
-                if(msg.Author is Discord.WebSocket.SocketGuildUser)
-                    nickname = ((Discord.WebSocket.SocketGuildUser)msg.Author).Nickname;
+                if(msg.Author is SocketGuildUser)
+                    nickname = ((SocketGuildUser)msg.Author).Nickname;
                 
                 var reply = new StringBuilder();
                 reply.Append(msg.Author.Username);
@@ -75,7 +77,7 @@ namespace WazeBotDiscord.Keywords
                 }
 
                 reply.Append("```\n");
-                reply.Append("Message:\n```\n");
+                reply.Append("Message:\n >>> ");
                 //Resolve any name mentions into the nickname - mentions don't resolve in code blocks
                 //<@(\d{18})>
                 Regex regName = new Regex(@"<@!?(\d{18})>");
@@ -94,7 +96,7 @@ namespace WazeBotDiscord.Keywords
                 }
 
                 reply.Append(newMsg);
-                reply.Append("\n```");
+                //reply.Append("\n```");
 
 
                 var dm = await (await client.GetUserAsync(m.UserId)).CreateDMChannelAsync();
