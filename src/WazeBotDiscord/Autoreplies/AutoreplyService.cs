@@ -129,6 +129,33 @@ namespace WazeBotDiscord.Autoreplies
             return globals.Find(r => msg.StartsWith($"!{r.Trigger}"));
         }
 
+        public async Task WarmupAsync()
+        {
+            await EnsureInitializedAsync();
+        }
+
+        /// <summary>
+        /// Autoreplies usable in the given context, one per trigger, closest scope winning
+        /// (channel, then server, then global). Pass null for channel/guild in DMs.
+        /// </summary>
+        public async Task<List<Autoreply>> GetAvailableAutorepliesAsync(ulong? channelId, ulong? guildId)
+        {
+            await EnsureInitializedAsync();
+            var candidates = new List<Autoreply>();
+            if (channelId.HasValue && guildId.HasValue)
+                candidates.AddRange(_autoreplies.FindAll(a => a.ChannelId == channelId.Value && a.GuildId == guildId.Value));
+            if (guildId.HasValue)
+                candidates.AddRange(_autoreplies.FindAll(a => a.ChannelId == 1 && a.GuildId == guildId.Value));
+            candidates.AddRange(_autoreplies.FindAll(a => a.ChannelId == 1 && a.GuildId == 1));
+
+            var seen = new HashSet<string>();
+            var result = new List<Autoreply>();
+            foreach (var a in candidates)
+                if (seen.Add(a.Trigger))
+                    result.Add(a);
+            return result;
+        }
+
         List<Autoreply> BuildList(ulong channelId, ulong guildId)
         {
             var autoreplyList = _autoreplies.FindAll(a => a.ChannelId == channelId);

@@ -104,6 +104,7 @@ namespace WazeBotDiscord
             };
 
             await _lookupService.WarmupAsync();
+            await _autoreplyService.WarmupAsync();
             //await _keywordService.WarmupAsync();
             // etc for other services
 

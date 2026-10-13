@@ -51,7 +51,7 @@ namespace WazeBotDiscord
                         LogLevel = LogSeverity.Info,
                         AlwaysDownloadUsers = true,
                         GatewayIntents = GatewayIntents.AllUnprivileged
-                                       | GatewayIntents.MessageContent
+                                       //| GatewayIntents.MessageContent
                                        | GatewayIntents.GuildMembers
                                        | GatewayIntents.Guilds
                 }));
