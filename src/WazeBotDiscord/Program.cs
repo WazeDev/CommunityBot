@@ -49,10 +49,10 @@ namespace WazeBotDiscord
                 services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
                 {
                         LogLevel = LogSeverity.Info,
-                        AlwaysDownloadUsers = true,
+                        //AlwaysDownloadUsers = true,
                         GatewayIntents = GatewayIntents.AllUnprivileged
                                        //| GatewayIntents.MessageContent
-                                       | GatewayIntents.GuildMembers
+                                       //| GatewayIntents.GuildMembers
                                        | GatewayIntents.Guilds
                 }));
                 services.AddSingleton(new CommandServiceConfig

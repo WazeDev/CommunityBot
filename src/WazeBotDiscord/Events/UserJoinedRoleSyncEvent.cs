@@ -16,10 +16,12 @@ namespace WazeBotDiscord.Events
             var newGuild = user.Guild;
 
             // here we go boiz
-            foreach (var guild in await RoleSyncHelpers.GetUserGuildsAsync(user, client))
+            foreach (var (guild, guildUser) in await RoleSyncHelpers.GetUserMembershipsAsync(user.Id, client))
             {
+                if (guild.Id == newGuild.Id)
+                    continue;
+
                 //var roleSet = false;
-                var guildUser = guild.GetUser(user.Id);
 
                 // loop through each role we're tracking in the guild
                 foreach (var role in _roleIds)
@@ -33,7 +35,7 @@ namespace WazeBotDiscord.Events
                         continue;
 
                     // check if this user has this role in the guild being checked
-                    if (!guildUser.Roles.Any(r => r.Id == roleId))
+                    if (!guildUser.RoleIds.Contains(roleId))
                         continue;
 
 

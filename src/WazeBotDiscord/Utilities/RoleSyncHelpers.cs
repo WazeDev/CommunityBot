@@ -41,18 +41,13 @@ namespace WazeBotDiscord.Utilities
                 IReadOnlyDictionary<ulong, ulong> guildRole,
                 IInteractionContext context)
             {
-                foreach (var guild in await GetUserGuildsAsync(guildUser, context.Client))
+                foreach (var (guild, member) in await GetUserMembershipsAsync(guildUser.Id, context.Client, guildRole.Keys))
                 {
-                    ulong roleId = 0;
+                    var roleId = guildRole[guild.Id];
                     try
                     {
-                        var exists = guildRole.TryGetValue(guild.Id, out roleId);
-                        if (!exists)
-                            continue;
-
-                        var role = guild.GetRole(roleId);
-                        var thisGuildUser = guild.GetUser(guildUser.Id);
-                        await thisGuildUser.RemoveRoleAsync(role);
+                        if (member.RoleIds.Contains(roleId))
+                            await member.RemoveRoleAsync(roleId);
                     }
                     catch
                     {
@@ -66,25 +61,47 @@ namespace WazeBotDiscord.Utilities
                 IReadOnlyDictionary<ulong, ulong> guildRole,
                 IDiscordClient client)
             {
-                foreach (var guild in await GetUserGuildsAsync(guildUser, client))
+                foreach (var (guild, member) in await GetUserMembershipsAsync(guildUser.Id, client, guildRole.Keys))
                 {
-                    var exists = guildRole.TryGetValue(guild.Id, out var roleId);
-                    if (!exists)
-                        continue;
-
-                    var role = guild.GetRole(roleId);
-                    var thisGuildUser = guild.GetUser(guildUser.Id);
-                    await thisGuildUser.AddRoleAsync(role);
+                    var roleId = guildRole[guild.Id];
+                    if (!member.RoleIds.Contains(roleId))
+                        await member.AddRoleAsync(roleId);
                 }
             }
 
-            public static async Task<IEnumerable<SocketGuild>> GetUserGuildsAsync(
-                SocketGuildUser guildUser,
-                IDiscordClient client)
+            /// <summary>
+            /// Finds every server the bot shares with the user, along with the user's member record there.
+            /// Fetches each member individually (cache first, then REST), so it works without the
+            /// Guild Members intent. Pass onlyGuildIds to skip servers that don't matter.
+            /// </summary>
+            public static async Task<List<(SocketGuild Guild, IGuildUser Member)>> GetUserMembershipsAsync(
+                ulong userId,
+                IDiscordClient client,
+                IEnumerable<ulong> onlyGuildIds = null)
             {
-                return (await client.GetGuildsAsync())
-                    .Select(g => g as SocketGuild)
-                    .Where(g => g.Users.Any(u => u.Id == guildUser.Id));
+                var wanted = onlyGuildIds == null ? null : new HashSet<ulong>(onlyGuildIds);
+                var result = new List<(SocketGuild, IGuildUser)>();
+
+                foreach (var g in (await client.GetGuildsAsync()).OfType<SocketGuild>())
+                {
+                    if (wanted != null && !wanted.Contains(g.Id))
+                        continue;
+
+                    IGuildUser member;
+                    try
+                    {
+                        member = await ((IGuild)g).GetUserAsync(userId, CacheMode.AllowDownload);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (member != null)
+                        result.Add((g, member));
+                }
+
+                return result;
             }
         }
     
